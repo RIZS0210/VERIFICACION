@@ -50,14 +50,18 @@
       document.getElementById("resultado").innerText = "Verificando identidad...";
 
       setTimeout(() => {
-        document.getElementById("resultado").innerText = "✅ Identidad verificada con éxito";
+        document.getElementById("resultado").innerText = "Identidad verificada con éxito";
 
         if (!esMovil) {
-          // URL actual de la página
-          const currentURL = window.location.href;
+          // Obtener la URL base (sin index.html ni parámetros)
+          let baseURL = window.location.origin + window.location.pathname;
+          if (baseURL.endsWith("index.html")) {
+            baseURL = baseURL.replace("index.html", "");
+          }
+
           document.getElementById("qrcode").innerHTML = "";
           new QRCode(document.getElementById("qrcode"), {
-            text: currentURL,
+            text: baseURL,
             width: 200,
             height: 200
           });
