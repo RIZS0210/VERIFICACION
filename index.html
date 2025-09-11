@@ -25,49 +25,93 @@
       border-radius: 8px;
       cursor: pointer;
       transition: background 0.3s;
+      margin-top: 15px;
     }
     button:hover {
       background-color: #005fa3;
     }
+    #formulario {
+      margin-top: 20px;
+    }
+    input {
+      padding: 10px;
+      font-size: 16px;
+      width: 250px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      text-transform: uppercase;
+    }
     #qrcode {
       margin-top: 20px;
+      display: flex;
+      justify-content: center;
+    }
+    #mensaje {
+      margin-top: 15px;
+      font-weight: bold;
+      color: #444;
     }
   </style>
 </head>
 <body>
-  <h1>Simulación de Verificación de Identidad</h1>
-  <button onclick="realizarVerificacion()">Realizar verificación</button>
-  <p id="resultado"></p>
+  <h1>Verificación de Identidad</h1>
+
+  <div id="formulario">
+    <h2>Ingrese los siguientes datos para realizar verificación</h2>
+    <input type="text" id="dni" maxlength="8" placeholder="Ingrese DNI" oninput="validarDNI(this)">
+    <br>
+    <input type="text" id="nombres" placeholder="Ingrese Nombres">
+    <br>
+    <input type="text" id="apellidos" placeholder="Ingrese Apellidos">
+    <br>
+    <button onclick="iniciarVerificacion()">Realizar verificación</button>
+  </div>
+
   <div id="qrcode"></div>
+  <p id="mensaje"></p>
 
   <!-- Librería QRCode -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script>
-    // Detectar si es móvil
     const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-    function realizarVerificacion() {
-      document.getElementById("resultado").innerText = "Verificando identidad...";
+    function iniciarVerificacion() {
+      const dni = document.getElementById("dni").value.trim();
+      const nombres = document.getElementById("nombres").value.trim();
+      const apellidos = document.getElementById("apellidos").value.trim();
 
-      setTimeout(() => {
-        document.getElementById("resultado").innerText = "Identidad verificada con éxito";
+      if (dni.length !== 8 || nombres === "" || apellidos === "") {
+        alert("Por favor complete todos los campos correctamente.");
+        return;
+      }
 
-        if (!esMovil) {
-          // Obtener la URL base (sin index.html ni parámetros)
-          let baseURL = window.location.origin + window.location.pathname;
-          if (baseURL.endsWith("index.html")) {
-            baseURL = baseURL.replace("index.html", "");
-          }
-
-          document.getElementById("qrcode").innerHTML = "";
-          new QRCode(document.getElementById("qrcode"), {
-            text: baseURL,
-            width: 200,
-            height: 200
-          });
+      if (esMovil) {
+        alert("Se solicitará acceso a la cámara para completar la verificación.");
+        // Aquí se podría iniciar el flujo de cámara con WebRTC o librerías externas
+      } else {
+        let baseURL = window.location.origin + window.location.pathname;
+        if (baseURL.endsWith("index.html")) {
+          baseURL = baseURL.replace("index.html", "");
         }
-      }, 2000);
+
+        document.getElementById("qrcode").innerHTML = "";
+        new QRCode(document.getElementById("qrcode"), {
+          text: baseURL,
+          width: 200,
+          height: 200
+        });
+
+        document.getElementById("mensaje").innerText =
+          "Escanea el código QR o ingresa a la siguiente dirección en tu celular: " + baseURL;
+      }
+    }
+
+    // Validar que DNI solo contenga números
+    function validarDNI(input) {
+      input.value = input.value.replace(/[^0-9]/g, ""); 
     }
   </script>
 </body>
 </html>
+
