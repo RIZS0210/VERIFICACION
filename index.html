@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verificación RENIEC</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #f4f6f9;
+      margin: 0;
+      padding: 30px;
+    }
+    h1 {
+      color: #333;
+    }
+    button {
+      padding: 15px 30px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #fff;
+      background-color: #0077cc;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background-color: #005fa3;
+    }
+    #qrcode {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Simulación de Verificación de Identidad</h1>
+  <button onclick="realizarVerificacion()">Realizar verificación</button>
+  <p id="resultado"></p>
+  <div id="qrcode"></div>
+
+  <!-- Librería QRCode -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    // Detectar si es móvil
+    const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    function realizarVerificacion() {
+      document.getElementById("resultado").innerText = "Verificando identidad...";
+
+      setTimeout(() => {
+        document.getElementById("resultado").innerText = "✅ Identidad verificada con éxito";
+
+        if (!esMovil) {
+          // URL pública de GitHub Pages
+          const publicURL = "https://TU_USUARIO.github.io/verificacion-reniec/";
+          document.getElementById("qrcode").innerHTML = "";
+          new QRCode(document.getElementById("qrcode"), {
+            text: publicURL,
+            width: 200,
+            height: 200
+          });
+        }
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
