@@ -53,11 +53,11 @@
         document.getElementById("resultado").innerText = "✅ Identidad verificada con éxito";
 
         if (!esMovil) {
-          // URL pública de GitHub Pages
-          const publicURL = "https://TU_USUARIO.github.io/verificacion-reniec/";
+          // URL actual de la página
+          const currentURL = window.location.href;
           document.getElementById("qrcode").innerHTML = "";
           new QRCode(document.getElementById("qrcode"), {
-            text: publicURL,
+            text: currentURL,
             width: 200,
             height: 200
           });
