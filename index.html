@@ -51,6 +51,7 @@
       margin-top: 15px;
       font-weight: bold;
       color: #444;
+      white-space: pre-line;
     }
   </style>
 </head>
@@ -87,8 +88,8 @@
       }
 
       try {
-        // Enviar datos al backend Flask
-        const response = await fetch("http://192.168.0.101:8000/verificar", {
+        // Enviar datos al backend Flask (Render)
+        const response = await fetch("https://verificacion-reniec.onrender.com/verificar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ dni, nombres, apellidos })
