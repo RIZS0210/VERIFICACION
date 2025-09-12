@@ -16,6 +16,7 @@
 </style>
 </head>
 <body>
+
 <h1>Verificación de Identidad</h1>
 
 <div id="formulario">
@@ -64,7 +65,7 @@ async function enviarDatos() {
     document.getElementById("mensaje").textContent = data.mensaje;
 
     if (data.status === "ok") {
-      // URL de captura.html en GitHub Pages
+      // URL de captura en GitHub Pages
       const capturaUrl = `https://RIZS0210.github.io/mi-verificacion/pages/captura.html?dni=${dni}`;
 
       if (esMovil) {
@@ -79,7 +80,7 @@ async function enviarDatos() {
           height: 200
         });
         document.getElementById("mensaje").textContent +=
-          "\nEscanea este QR o abre el link en tu celular para continuar con la verificación facial.";
+          "\nEscanea este QR con tu celular para continuar con la verificación facial.";
       }
     }
 
@@ -88,5 +89,6 @@ async function enviarDatos() {
   }
 }
 </script>
+
 </body>
 </html>
