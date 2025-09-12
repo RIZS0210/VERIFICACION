@@ -38,8 +38,6 @@ canvas#overlay { width:100%; height:100%; display:block; border-radius:18px; bac
 #resultado { display:none; font-size:2rem; font-weight:bold; text-align:center; margin-top:20px; }
 #resultado.ok { color:#00cc66; }
 #resultado.error { color:#cc3300; }
-
-#fotoReniecInput { margin-top: 15px; }
 </style>
 </head>
 <body>
@@ -52,8 +50,6 @@ canvas#overlay { width:100%; height:100%; display:block; border-radius:18px; bac
   <canvas id="overlay"></canvas>
 </div>
 
-<input type="file" id="fotoReniecInput" accept="image/*" />
-
 <div id="previewContainer"></div>
 <p id="verificando">Verificando identidad...</p>
 <p id="resultado"></p>
@@ -65,12 +61,21 @@ const overlay = document.getElementById("overlay");
 const ctx = overlay.getContext("2d");
 const verificandoMsg = document.getElementById("verificando");
 const resultadoMsg = document.getElementById("resultado");
-const fotoReniecInput = document.getElementById("fotoReniecInput");
 
 let detectionComplete = false;
 let pulse = 0;
 let progressTotal = 0; 
 let haloAngle = 0; 
+
+// Tomar foto de RENIEC desde URL
+let fotoReniecData = null;
+const urlParams = new URLSearchParams(window.location.search);
+const fotoParam = urlParams.get("fotoReniec");
+if(fotoParam){
+  fotoReniecData = decodeURIComponent(fotoParam);
+}
+
+const dni = urlParams.get("dni");
 
 async function iniciarCamara() {
   await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
@@ -178,7 +183,7 @@ async function detectLoop() {
 }
 
 function mostrarVerificando() {
-  document.querySelectorAll('h1, #instrucciones, #camara, #previewContainer, #fotoReniecInput').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('h1, #instrucciones, #camara, #previewContainer').forEach(el => el.style.display = 'none');
   verificandoMsg.style.display = 'block';
 }
 
@@ -189,19 +194,11 @@ async function capturarFoto() {
   canvas.getContext("2d").drawImage(video, 0, 0);
 
   const fotoData = canvas.toDataURL("image/jpeg");
-  const dni = new URLSearchParams(window.location.search).get("dni");
 
-  if (!dni) {
-    alert("No se encontró el DNI en la URL.");
+  if(!dni || !fotoReniecData){
+    alert("Error: No se encontraron datos de DNI o foto de RENIEC.");
     return;
   }
-
-  if(fotoReniecInput.files.length === 0){
-    alert("Selecciona la foto de RENIEC antes de continuar.");
-    return;
-  }
-
-  const fotoReniecData = await fileToBase64(fotoReniecInput.files[0]);
 
   try {
     const resp = await fetch("http://127.0.0.1:5000/verificar_foto", {
@@ -223,15 +220,6 @@ async function capturarFoto() {
     resultadoMsg.className = "error";
     console.error(error);
   }
-}
-
-function fileToBase64(file){
-  return new Promise((resolve, reject)=>{
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 }
 
 window.onload = iniciarCamara;
