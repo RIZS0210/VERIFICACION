@@ -201,7 +201,7 @@ async function capturarFoto() {
   }
 
   try {
-    const resp = await fetch("http://192.168.0.101:5000/verificar_foto", {
+    const resp = await fetch("https://face-app-k1b5.onrender.com/verificar_foto", {
      method: "POST",
      headers: { "Content-Type": "application/json" },
      body: JSON.stringify({ dni, foto: fotoData, foto_reniec: fotoReniecData })
@@ -211,7 +211,7 @@ async function capturarFoto() {
     verificandoMsg.style.display = 'none';
     resultadoMsg.style.display = 'block';
     resultadoMsg.textContent = data.mensaje;
-    resultadoMsg.className = data.mensaje.includes("✅") ? "ok" : "error";
+    resultadoMsg.className = data.status === "ok" ? "ok" : "error";
 
   } catch (error) {
     verificandoMsg.style.display = 'none';
@@ -226,4 +226,3 @@ window.onload = iniciarCamara;
 </script>
 </body>
 </html>
-
