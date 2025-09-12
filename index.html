@@ -23,7 +23,7 @@
   <h2>Ingrese los siguientes datos</h2>
   <input type="text" id="dni" maxlength="8" placeholder="DNI" oninput="validarDNI(this)">
   <br>
-  <input type="text" id="nombres" placeholder=" Nombres">
+  <input type="text" id="nombres" placeholder="Nombres">
   <br>
   <input type="text" id="apellidos" placeholder="Apellidos">
   <br>
@@ -65,13 +65,34 @@ async function enviarDatos() {
     document.getElementById("mensaje").textContent = data.mensaje;
 
     if (data.status === "ok") {
-      // URL de captura en GitHub Pages
-      const capturaUrl = `https://RIZS0210.github.io/VERIFICACION/main/captura.html?dni=${dni}`;
+      // URL de captura facial
       const capturaUrl = `https://RIZS0210.github.io/VERIFICACION/captura.html?dni=${dni}`;
 
+      // Generar QR
+      document.getElementById("qrcode").innerHTML = "";
+      new QRCode(document.getElementById("qrcode"), {
+        text: capturaUrl,
+        width: 180,
+        height: 180,
+        colorDark : "#0077cc",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.H
+      });
+
+      // Redirigir automáticamente si es móvil
       if (esMovil) {
-        // Redirige automáticamente desde el celular
-@@ -93,3 +93,4 @@
+        setTimeout(() => {
+          window.location.href = capturaUrl;
+        }, 2000); // espera 2 segundos para mostrar mensaje y QR
+      }
+    }
+
+  } catch (error) {
+    console.error(error);
+    alert("Ocurrió un error al verificar los datos. Intente nuevamente.");
+  }
+}
+</script>
+
 </body>
 </html>
-
