@@ -5,35 +5,56 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Captura Facial Automática</title>
 <style>
-  body {
-    margin:0;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    height:100vh;
-    background: #e0f7fa;
-    color:#333;
-  }
-  h1 { color:#0077cc; text-align:center; }
-  #camara { position:relative; width:90%; max-width:400px; }
-  video { display:none; }
-  canvas { width:100%; height:100%; border-radius:12px; background:#f0f0f0; }
-  #preview img { width:100%; max-width:400px; margin-top:10px; border:2px solid #0077cc; border-radius:12px; }
-  #verificando, #resultado { font-size:1.5rem; font-weight:bold; text-align:center; margin-top:15px; display:none; }
-  #resultado.ok { color: #00cc66; }
-  #resultado.error { color: #cc3300; }
+body {
+  margin:0;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  background: linear-gradient(135deg, #d0ebff, #ffffff); 
+  color:#333;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
+  overflow:hidden;
+}
+
+h1, #instrucciones, #camara, #previewContainer {
+  transition: all 0.3s ease;
+}
+
+h1 { margin-top:0; font-size:1.6rem; text-align:center; color:#0077cc; }
+#instrucciones { margin:10px; font-weight:500; color:#555; text-align:center; }
+
+#camara { position: relative; width: 90%; max-width:480px; flex:1; }
+video { display:none; }
+
+canvas#overlay { width:100%; height:100%; display:block; border-radius:18px; background:#f0f0f0; box-shadow:0 10px 25px rgba(0,0,0,0.1); }
+
+#previewContainer img { width:90%; max-width:400px; margin-top:20px; border:2px solid #0077cc; border-radius:12px; box-shadow:0 0 15px rgba(0,119,204,0.5); }
+
+#verificando { display:none; font-size:2rem; font-weight:bold; color:#0077cc; animation: pulse 1.5s infinite; text-align:center; }
+@keyframes pulse { 0%{opacity:0.4;} 50%{opacity:1;} 100%{opacity:0.4;} }
+
+#resultado { display:none; font-size:2rem; font-weight:bold; text-align:center; margin-top:20px; }
+#resultado.ok { color:#00cc66; }
+#resultado.error { color:#cc3300; }
+
+#fotoReniecInput { margin-top: 15px; }
 </style>
 </head>
 <body>
 
 <h1>Coloca tu rostro dentro del círculo</h1>
+<p id="instrucciones">Gira tu rostro lentamente para capturar varios ángulos automáticamente.</p>
+
 <div id="camara">
   <video autoplay muted playsinline></video>
   <canvas id="overlay"></canvas>
 </div>
-<div id="preview"></div>
+
+<input type="file" id="fotoReniecInput" accept="image/*" />
+
+<div id="previewContainer"></div>
 <p id="verificando">Verificando identidad...</p>
 <p id="resultado"></p>
 
@@ -42,18 +63,23 @@
 const video = document.querySelector("video");
 const overlay = document.getElementById("overlay");
 const ctx = overlay.getContext("2d");
-const preview = document.getElementById("preview");
 const verificandoMsg = document.getElementById("verificando");
 const resultadoMsg = document.getElementById("resultado");
+const fotoReniecInput = document.getElementById("fotoReniecInput");
 
 let detectionComplete = false;
-let progressTotal = 0;
+let pulse = 0;
+let progressTotal = 0; 
+let haloAngle = 0; 
 
 async function iniciarCamara() {
   await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
   await faceapi.nets.faceLandmark68TinyNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
-  const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"user" }});
+
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
   video.srcObject = stream;
+  video.play();
+
   video.onloadedmetadata = () => {
     overlay.width = video.videoWidth;
     overlay.height = video.videoHeight;
@@ -61,54 +87,85 @@ async function iniciarCamara() {
   };
 }
 
-function drawOverlay(progress=0) {
-  const cx = overlay.width/2;
-  const cy = overlay.height/2;
+function drawOverlay(progress = 0) {
+  const cx = overlay.width / 2;
+  const cy = overlay.height / 2;
   const radius = Math.min(overlay.width, overlay.height)/2.2;
-  ctx.clearRect(0,0,overlay.width,overlay.height);
+
+  ctx.clearRect(0,0,overlay.width, overlay.height);
+  pulse += 0.05;
+  haloAngle += 0.02;
+  const glow = 3 + 2*Math.sin(pulse);
 
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, 2*Math.PI);
   ctx.clip();
-  ctx.drawImage(video,0,0,overlay.width,overlay.height);
+  ctx.drawImage(video, 0, 0, overlay.width, overlay.height);
   ctx.restore();
 
-  // borde azul
+  ctx.fillStyle = "rgba(200, 230, 240, 0.6)";
   ctx.beginPath();
-  ctx.arc(cx, cy, radius,0,2*Math.PI);
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = "#0077cc";
-  ctx.stroke();
+  ctx.rect(0,0,overlay.width,overlay.height);
+  ctx.arc(cx, cy, radius, 0, 2*Math.PI, true);
+  ctx.fill();
 
-  if(progress>0){
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, 2*Math.PI);
+  ctx.lineWidth = 4 + glow/2;
+  ctx.strokeStyle = "#0077cc";
+  ctx.shadowColor = "#0077cc";
+  ctx.shadowBlur = glow*3;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  if(progress > 0){
     ctx.beginPath();
-    ctx.arc(cx,cy,radius+5,-Math.PI/2,-Math.PI/2+2*Math.PI*progress);
-    ctx.lineWidth=4;
-    ctx.strokeStyle="#00cc66";
+    ctx.arc(cx, cy, radius + 5, -Math.PI/2, -Math.PI/2 + 2*Math.PI*progress);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "#00cc66";
     ctx.stroke();
   }
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius + 12, haloAngle, haloAngle + Math.PI/3);
+  ctx.lineWidth = 6;
+  const gradient = ctx.createLinearGradient(cx - radius, cy - radius, cx + radius, cy + radius);
+  gradient.addColorStop(0, 'rgba(0,119,204,0)');
+  gradient.addColorStop(0.5, 'rgba(0,119,204,0.5)');
+  gradient.addColorStop(1, 'rgba(0,119,204,0)');
+  ctx.strokeStyle = gradient;
+  ctx.stroke();
 }
 
-async function detectLoop(){
-  if(detectionComplete) return;
-  const options = new faceapi.TinyFaceDetectorOptions({ inputSize:160, scoreThreshold:0.5 });
+async function detectLoop() {
+  if (detectionComplete) return;
+
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
   const detections = await faceapi.detectSingleFace(video, options).withFaceLandmarks(true);
+
+  const cx = overlay.width / 2;
+  const cy = overlay.height / 2;
 
   if(detections){
     const nose = detections.landmarks.positions[30];
     const leftEye = detections.landmarks.positions[36];
     const rightEye = detections.landmarks.positions[45];
-    const dx = nose.x - overlay.width/2;
-    const dy = nose.y - overlay.height/2;
-    const dist = Math.sqrt(dx*dx+dy*dy);
+
+    const dx = nose.x - cx;
+    const dy = nose.y - cy;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+
     const maxDist = 100;
-    let frameProgress = Math.max(0,1-dist/maxDist);
-    progressTotal = Math.min(1,progressTotal + frameProgress*0.02);
+    let frameProgress = Math.max(0, 1 - dist / maxDist);
+    frameProgress = Math.min(1, frameProgress);
+
+    progressTotal = Math.min(1, progressTotal + frameProgress * 0.01);
     drawOverlay(progressTotal);
 
-    if(progressTotal>=0.95 && Math.abs(leftEye.x-rightEye.x)>40){
-      detectionComplete=true;
+    const eyeDist = Math.abs(leftEye.x - rightEye.x);
+    if(progressTotal >= 0.95 && eyeDist > 40){
+      detectionComplete = true;
       mostrarVerificando();
       await capturarFoto();
       return;
@@ -120,54 +177,64 @@ async function detectLoop(){
   requestAnimationFrame(detectLoop);
 }
 
-function mostrarVerificando(){
-  document.getElementById("camara").style.display="none";
-  verificandoMsg.style.display="block";
+function mostrarVerificando() {
+  document.querySelectorAll('h1, #instrucciones, #camara, #previewContainer, #fotoReniecInput').forEach(el => el.style.display = 'none');
+  verificandoMsg.style.display = 'block';
 }
 
-async function capturarFoto(){
+async function capturarFoto() {
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  canvas.getContext("2d").drawImage(video,0,0);
+  canvas.getContext("2d").drawImage(video, 0, 0);
+
   const fotoData = canvas.toDataURL("image/jpeg");
+  const dni = new URLSearchParams(window.location.search).get("dni");
 
-  // mostrar previsualización
-  const img = document.createElement("img");
-  img.src = fotoData;
-  preview.appendChild(img);
+  if (!dni) {
+    alert("No se encontró el DNI en la URL.");
+    return;
+  }
 
-  const params = new URLSearchParams(window.location.search);
-  const dni = params.get("dni") || "00000000"; // dni por defecto si no viene
+  if(fotoReniecInput.files.length === 0){
+    alert("Selecciona la foto de RENIEC antes de continuar.");
+    return;
+  }
 
-  try{
+  const fotoReniecData = await fileToBase64(fotoReniecInput.files[0]);
+
+  try {
     const resp = await fetch("http://127.0.0.1:5000/verificar_foto", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({dni,foto:fotoData})
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dni, foto: fotoData, foto_reniec: fotoReniecData })
     });
+
     const data = await resp.json();
-    verificandoMsg.style.display="none";
-    resultadoMsg.style.display="block";
+    verificandoMsg.style.display = 'none';
+    resultadoMsg.style.display = 'block';
+    resultadoMsg.textContent = data.mensaje;
+    resultadoMsg.className = data.mensaje.includes("✅") ? "ok" : "error";
 
-    if(data.mensaje.includes("coinciden")){
-      resultadoMsg.textContent="✅ Verificación exitosa";
-      resultadoMsg.className="ok";
-    } else {
-      resultadoMsg.textContent="❌ Verificación fallida";
-      resultadoMsg.className="error";
-    }
-
-  }catch(e){
-    verificandoMsg.style.display="none";
-    resultadoMsg.style.display="block";
-    resultadoMsg.textContent="❌ Error de conexión al servidor";
-    resultadoMsg.className="error";
-    console.error(e);
+  } catch (error) {
+    verificandoMsg.style.display = 'none';
+    resultadoMsg.style.display = 'block';
+    resultadoMsg.textContent = "❌ Error de conexión";
+    resultadoMsg.className = "error";
+    console.error(error);
   }
 }
 
-window.onload=iniciarCamara;
+function fileToBase64(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+window.onload = iniciarCamara;
 </script>
 </body>
 </html>
