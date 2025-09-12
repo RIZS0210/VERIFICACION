@@ -5,36 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Verificación RENIEC</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background-color: #f4f6f9;
-      margin: 0;
-      padding: 30px;
-    }
+    body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f6f9; margin: 0; padding: 30px; }
     h1 { color: #333; }
-    button {
-      padding: 15px 30px;
-      font-size: 18px;
-      font-weight: bold;
-      color: #fff;
-      background-color: #0077cc;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-top: 15px;
-    }
+    button { padding: 15px 30px; font-size: 18px; font-weight: bold; color: #fff; background-color: #0077cc; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; }
     button:hover { background-color: #005fa3; }
     #formulario { margin-top: 20px; }
-    input {
-      padding: 10px;
-      font-size: 16px;
-      width: 250px;
-      margin: 8px 0;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      text-transform: uppercase;
-    }
+    input { padding: 10px; font-size: 16px; width: 250px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; text-transform: uppercase; }
     #mensaje { margin-top: 15px; font-weight: bold; color: #444; white-space: pre-line; }
     #qrcode { margin-top: 20px; display: flex; justify-content: center; }
   </style>
@@ -87,10 +63,11 @@
         document.getElementById("mensaje").textContent = data.mensaje;
 
         if (data.status === "ok") {
-          const capturaUrl = `captura.html?dni=${dni}`;
+          // Aquí ponemos la URL completa de captura.html en el servidor
+          const capturaUrl = `https://verificacion-reniec.onrender.com/captura.html?dni=${dni}`;
 
           if (esMovil) {
-            // Redirige directamente desde el celular
+            // Redirige automáticamente desde el celular
             window.location.href = capturaUrl;
           } else {
             // PC: genera QR para abrir captura en celular
