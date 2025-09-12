@@ -12,9 +12,7 @@
       margin: 0;
       padding: 30px;
     }
-    h1 {
-      color: #333;
-    }
+    h1 { color: #333; }
     button {
       padding: 15px 30px;
       font-size: 18px;
@@ -27,12 +25,8 @@
       transition: background 0.3s;
       margin-top: 15px;
     }
-    button:hover {
-      background-color: #005fa3;
-    }
-    #formulario {
-      margin-top: 20px;
-    }
+    button:hover { background-color: #005fa3; }
+    #formulario { margin-top: 20px; }
     input {
       padding: 10px;
       font-size: 16px;
@@ -42,36 +36,19 @@
       border-radius: 6px;
       text-transform: uppercase;
     }
-    #qrcode {
-      margin-top: 20px;
-      display: flex;
-      justify-content: center;
-    }
-    #mensaje {
-      margin-top: 15px;
-      font-weight: bold;
-      color: #444;
-      white-space: pre-line;
-    }
-    video {
-      margin-top: 20px;
-      width: 320px;
-      border: 2px solid #333;
-      border-radius: 8px;
-    }
+    #qrcode { margin-top: 20px; display: flex; justify-content: center; }
+    #mensaje { margin-top: 15px; font-weight: bold; color: #444; white-space: pre-line; }
+    video { margin-top: 20px; width: 320px; border: 2px solid #333; border-radius: 8px; }
   </style>
 </head>
 <body>
   <h1>Verificación de Identidad</h1>
 
   <div id="formulario">
-    <h2>Ingrese los siguientes datos para realizar verificación</h2>
-    <input type="text" id="dni" maxlength="8" placeholder="Ingrese DNI" oninput="validarDNI(this)">
-    <br>
-    <input type="text" id="nombres" placeholder="Ingrese Nombres">
-    <br>
-    <input type="text" id="apellidos" placeholder="Ingrese Apellidos">
-    <br>
+    <h2>Ingrese los datos para verificación</h2>
+    <input type="text" id="dni" maxlength="8" placeholder="Ingrese DNI" oninput="validarDNI(this)"><br>
+    <input type="text" id="nombres" placeholder="Ingrese Nombres"><br>
+    <input type="text" id="apellidos" placeholder="Ingrese Apellidos"><br>
     <button onclick="iniciarVerificacion()">Realizar verificación</button>
   </div>
 
@@ -79,17 +56,13 @@
   <p id="mensaje"></p>
   <div id="camara"></div>
 
-  <!-- Librería QRCode -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script>
     const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-    // Detecta si la URL tiene el parámetro de verificación para continuar flujo
     window.onload = () => {
       const params = new URLSearchParams(window.location.search);
-      if (params.get("verificacion") === "true") {
-        iniciarVerificacion();
-      }
+      if (params.get("verificacion") === "true") iniciarVerificacion();
     };
 
     async function iniciarVerificacion() {
@@ -103,7 +76,6 @@
       }
 
       try {
-        // Enviar datos al backend Flask
         const response = await fetch("https://verificacion-reniec.onrender.com/verificar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -115,19 +87,12 @@
 
         if (data.status === "ok") {
           if (esMovil) {
-            alert("Se solicitará acceso a la cámara para completar la verificación facial.");
             iniciarCamara(dni);
           } else {
-            // Generar QR para abrir en celular y continuar verificación
             const url = window.location.href + "?verificacion=true";
             document.getElementById("qrcode").innerHTML = "";
-            new QRCode(document.getElementById("qrcode"), {
-              text: url,
-              width: 200,
-              height: 200
-            });
-            document.getElementById("mensaje").innerText +=
-              "\nEscanea el código QR o abre esta dirección en tu celular para continuar.";
+            new QRCode(document.getElementById("qrcode"), { text: url, width: 200, height: 200 });
+            document.getElementById("mensaje").innerText += "\nEscanea el QR o abre esta página en tu celular.";
           }
         }
 
@@ -136,10 +101,7 @@
       }
     }
 
-    // Validar que DNI solo contenga números
-    function validarDNI(input) {
-      input.value = input.value.replace(/[^0-9]/g, ""); 
-    }
+    function validarDNI(input) { input.value = input.value.replace(/[^0-9]/g, ""); }
 
     async function iniciarCamara(dni) {
       try {
@@ -149,34 +111,31 @@
         video.autoplay = true;
         document.getElementById("camara").appendChild(video);
 
-        const btnCapturar = document.createElement("button");
-        btnCapturar.innerText = "Capturar rostro";
-        document.getElementById("camara").appendChild(btnCapturar);
+        alert("Gira tu rostro lentamente para capturar varias imágenes.");
 
-        btnCapturar.onclick = async () => {
+        let capturas = [];
+        const intervalo = setInterval(() => {
+          if (capturas.length >= 5) { clearInterval(intervalo); enviarCapturas(); return; }
           const canvas = document.createElement("canvas");
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
           canvas.getContext("2d").drawImage(video, 0, 0);
-          const fotoData = canvas.toDataURL("image/jpeg");
+          capturas.push(canvas.toDataURL("image/jpeg"));
+        }, 1000);
 
-          // Enviar foto al backend para comparación facial
+        async function enviarCapturas() {
           const resp = await fetch("https://verificacion-reniec.onrender.com/verificar_foto", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ dni, foto: fotoData })
+            body: JSON.stringify({ dni, fotos: capturas })
           });
           const resultado = await resp.json();
           document.getElementById("mensaje").innerText += "\n" + resultado.mensaje;
 
-          if(resultado.status === "ok"){
-            alert("✅ Verificación facial completada con éxito.");
-          } else {
-            alert("❌ Rostro no coincide. Intenta nuevamente.");
-          }
-        };
+          if (resultado.status === "ok") alert("✅ Verificación facial completada.");
+          else alert("❌ Rostro no coincide. Intenta nuevamente.");
+        }
 
-        alert("Gira tu cara lentamente para que se tomen varias imágenes y mejore la verificación.");
       } catch (err) {
         alert("No se pudo acceder a la cámara: " + err);
       }
