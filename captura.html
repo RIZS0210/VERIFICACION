@@ -2,91 +2,138 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Captura Facial</title>
+<title>Captura Facial Automática</title>
 <style>
   body { text-align:center; font-family:Arial; padding:30px; background:#f4f6f9; }
   #camara { position: relative; display: inline-block; }
   video { width: 320px; border:2px solid #333; border-radius:8px; margin-top:20px; }
-  #overlay {
+  canvas#overlay {
     position: absolute;
-    top: 0; left: 0;
-    width: 320px; height: auto;
-    border: 3px solid #0077cc;
-    border-radius: 50%;
-    box-sizing: border-box;
-    pointer-events: none;
+    top:0; left:0;
+    border-radius:50%;
+    pointer-events:none;
     margin-top:20px;
   }
   img.preview { width: 320px; margin-top:20px; border:2px solid #333; border-radius:8px; }
-  button { padding: 10px 20px; font-size:16px; margin-top:15px; cursor:pointer; border:none; border-radius:8px; background:#0077cc; color:#fff; }
-  button:hover { background:#005fa3; }
   #instrucciones { margin-top:20px; font-weight:bold; color:#444; }
 </style>
 </head>
 <body>
 
 <h1>Coloca tu rostro dentro del círculo</h1>
-<p id="instrucciones">Gira tu cabeza lentamente mientras se captura la imagen.</p>
+<p id="instrucciones">Gira tu cabeza lentamente mientras se captura la imagen automáticamente.</p>
 
 <div id="camara">
-  <video autoplay></video>
-  <div id="overlay"></div>
+  <video autoplay muted></video>
+  <canvas id="overlay" width="320" height="240"></canvas>
 </div>
-<br>
-<button id="btnCapturar">Capturar rostro</button>
 <div id="previewContainer"></div>
 
+<!-- face-api.js -->
+<script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+
 <script>
+const video = document.querySelector("video");
+const overlay = document.getElementById("overlay");
+const ctx = overlay.getContext("2d");
+const previewContainer = document.getElementById("previewContainer");
+let detectionComplete = false;
+
 async function iniciarCamara() {
-    try {
-        const video = document.querySelector("video");
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
+  // Cargar modelos de face-api
+  await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
+  await faceapi.nets.faceLandmark68TinyNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
 
-        const btnCapturar = document.getElementById("btnCapturar");
-        const previewContainer = document.getElementById("previewContainer");
+  // Acceder a la cámara
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  video.srcObject = stream;
+  video.play();
 
-        btnCapturar.onclick = async () => {
-            const canvas = document.createElement("canvas");
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext("2d").drawImage(video, 0, 0);
+  // Empezar el loop de detección
+  video.addEventListener("play", detectLoop);
+}
 
-            const fotoData = canvas.toDataURL("image/jpeg");
+async function detectLoop() {
+  if (detectionComplete) return;
 
-            // Previsualizar la foto
-            previewContainer.innerHTML = "";
-            const imgPreview = document.createElement("img");
-            imgPreview.src = fotoData;
-            imgPreview.className = "preview";
-            previewContainer.appendChild(imgPreview);
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
+  const detections = await faceapi.detectSingleFace(video, options).withFaceLandmarks(true);
 
-            // Obtener DNI desde URL
-            const params = new URLSearchParams(window.location.search);
-            const dni = params.get("dni");
-            if (!dni) {
-                alert("No se encontró el DNI en la URL.");
-                return;
-            }
+  // Limpiar canvas
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-            // Enviar foto al backend
-            const resp = await fetch("https://verificacion-reniec.onrender.com/verificar_foto", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ dni, foto: fotoData })
-            });
-            const resultado = await resp.json();
+  // Dibujar círculo guía
+  const circleX = overlay.width / 2;
+  const circleY = overlay.height / 2;
+  const radius = 80;
+  ctx.strokeStyle = "#0077cc";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(circleX, circleY, radius, 0, 2 * Math.PI);
+  ctx.stroke();
 
-            alert(resultado.mensaje);
-        };
+  if (detections) {
+    // Dibujar progress en círculo
+    // Aquí usamos un simple "progreso" basado en movimiento de la cara
+    const landmarks = detections.landmarks.positions;
+    const dx = landmarks[30].x - circleX; // nariz respecto al centro
+    const dy = landmarks[30].y - circleY;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    let progress = Math.min(1, 1 - dist / 50); // 1 = centrado perfectamente
+    progress = Math.max(0, progress);
 
-    } catch (err) {
-        alert("No se pudo acceder a la cámara: " + err);
+    // Dibujar líneas verdes según progreso
+    ctx.strokeStyle = "#00ff00";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(circleX, circleY, radius, -Math.PI/2, -Math.PI/2 + 2 * Math.PI * progress);
+    ctx.stroke();
+
+    if (progress > 0.95) {
+      detectionComplete = true;
+      capturarFoto();
+      return;
     }
+  }
+
+  requestAnimationFrame(detectLoop);
+}
+
+async function capturarFoto() {
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0);
+
+  const fotoData = canvas.toDataURL("image/jpeg");
+
+  // Mostrar preview
+  const imgPreview = document.createElement("img");
+  imgPreview.src = fotoData;
+  imgPreview.className = "preview";
+  previewContainer.appendChild(imgPreview);
+
+  // Obtener DNI desde URL
+  const params = new URLSearchParams(window.location.search);
+  const dni = params.get("dni");
+
+  if (!dni) {
+    alert("No se encontró el DNI en la URL.");
+    return;
+  }
+
+  // Enviar foto al backend
+  const resp = await fetch("https://verificacion-reniec.onrender.com/verificar_foto", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ dni, foto: fotoData })
+  });
+  const resultado = await resp.json();
+
+  alert(resultado.mensaje);
 }
 
 window.onload = iniciarCamara;
 </script>
-
 </body>
 </html>
