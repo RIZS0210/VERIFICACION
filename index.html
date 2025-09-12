@@ -1,92 +1,92 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verificación RENIEC</title>
-  <style>
-    body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f6f9; margin: 0; padding: 30px; }
-    h1 { color: #333; }
-    button { padding: 15px 30px; font-size: 18px; font-weight: bold; color: #fff; background-color: #0077cc; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; }
-    button:hover { background-color: #005fa3; }
-    #formulario { margin-top: 20px; }
-    input { padding: 10px; font-size: 16px; width: 250px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; text-transform: uppercase; }
-    #mensaje { margin-top: 15px; font-weight: bold; color: #444; white-space: pre-line; }
-    #qrcode { margin-top: 20px; display: flex; justify-content: center; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verificación RENIEC</title>
+<style>
+  body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f6f9; margin: 0; padding: 30px; }
+  h1 { color: #333; }
+  button { padding: 15px 30px; font-size: 18px; font-weight: bold; color: #fff; background-color: #0077cc; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; }
+  button:hover { background-color: #005fa3; }
+  #formulario { margin-top: 20px; }
+  input { padding: 10px; font-size: 16px; width: 250px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; text-transform: uppercase; }
+  #mensaje { margin-top: 15px; font-weight: bold; color: #444; white-space: pre-line; }
+  #qrcode { margin-top: 20px; display: flex; justify-content: center; }
+</style>
 </head>
 <body>
-  <h1>Verificación de Identidad</h1>
+<h1>Verificación de Identidad</h1>
 
-  <div id="formulario">
-    <h2>Ingrese los siguientes datos</h2>
-    <input type="text" id="dni" maxlength="8" placeholder="Ingrese DNI" oninput="validarDNI(this)">
-    <br>
-    <input type="text" id="nombres" placeholder="Ingrese Nombres">
-    <br>
-    <input type="text" id="apellidos" placeholder="Ingrese Apellidos">
-    <br>
-    <button onclick="enviarDatos()">Continuar</button>
-  </div>
+<div id="formulario">
+  <h2>Ingrese los siguientes datos</h2>
+  <input type="text" id="dni" maxlength="8" placeholder="Ingrese DNI" oninput="validarDNI(this)">
+  <br>
+  <input type="text" id="nombres" placeholder="Ingrese Nombres">
+  <br>
+  <input type="text" id="apellidos" placeholder="Ingrese Apellidos">
+  <br>
+  <button onclick="enviarDatos()">Continuar</button>
+</div>
 
-  <div id="qrcode"></div>
-  <p id="mensaje"></p>
+<div id="qrcode"></div>
+<p id="mensaje"></p>
 
-  <!-- Librería QRCode -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<!-- Librería QRCode -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
-  <script>
-    const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+<script>
+const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-    function validarDNI(input) {
-      input.value = input.value.replace(/[^0-9]/g, "");
-    }
+function validarDNI(input) {
+  input.value = input.value.replace(/[^0-9]/g, "");
+}
 
-    async function enviarDatos() {
-      const dni = document.getElementById("dni").value.trim();
-      const nombres = document.getElementById("nombres").value.trim();
-      const apellidos = document.getElementById("apellidos").value.trim();
+async function enviarDatos() {
+  const dni = document.getElementById("dni").value.trim();
+  const nombres = document.getElementById("nombres").value.trim();
+  const apellidos = document.getElementById("apellidos").value.trim();
 
-      if (dni.length !== 8 || nombres === "" || apellidos === "") {
-        alert("Por favor complete todos los campos correctamente.");
-        return;
-      }
+  if (dni.length !== 8 || nombres === "" || apellidos === "") {
+    alert("Por favor complete todos los campos correctamente.");
+    return;
+  }
 
-      try {
-        // Llamada al backend en Render
-        const response = await fetch("https://verificacion-reniec.onrender.com/verificar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dni, nombres, apellidos })
+  try {
+    // Llamada al backend en Render
+    const response = await fetch("https://verificacion-reniec.onrender.com/verificar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dni, nombres, apellidos })
+    });
+
+    const data = await response.json();
+    document.getElementById("mensaje").textContent = data.mensaje;
+
+    if (data.status === "ok") {
+      // URL de captura.html en GitHub Pages
+      const capturaUrl = `https://RIZS0210.github.io/mi-verificacion/pages/captura.html?dni=${dni}`;
+
+      if (esMovil) {
+        // Redirige automáticamente desde el celular
+        window.location.href = capturaUrl;
+      } else {
+        // PC: genera QR para abrir captura en celular
+        document.getElementById("qrcode").innerHTML = "";
+        new QRCode(document.getElementById("qrcode"), {
+          text: capturaUrl,
+          width: 200,
+          height: 200
         });
-
-        const data = await response.json();
-        document.getElementById("mensaje").textContent = data.mensaje;
-
-        if (data.status === "ok") {
-          // URL de captura en GitHub Pages (cambia username/mi-verificacion)
-          const capturaUrl = `https://username.github.io/mi-verificacion/pages/captura.html?dni=${dni}`;
-
-          if (esMovil) {
-            // Redirige automáticamente desde el celular
-            window.location.href = capturaUrl;
-          } else {
-            // PC: genera QR para abrir captura en celular
-            document.getElementById("qrcode").innerHTML = "";
-            new QRCode(document.getElementById("qrcode"), {
-              text: capturaUrl,
-              width: 200,
-              height: 200
-            });
-            document.getElementById("mensaje").textContent +=
-              "\nEscanea este QR o abre el link en tu celular para continuar con la verificación facial.";
-          }
-        }
-
-      } catch (error) {
-        document.getElementById("mensaje").textContent = "⚠️ Error al conectar con el servidor.";
+        document.getElementById("mensaje").textContent +=
+          "\nEscanea este QR o abre el link en tu celular para continuar con la verificación facial.";
       }
     }
-  </script>
+
+  } catch (error) {
+    document.getElementById("mensaje").textContent = "⚠️ Error al conectar con el servidor.";
+  }
+}
+</script>
 </body>
 </html>
