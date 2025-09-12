@@ -201,10 +201,10 @@ async function capturarFoto() {
   }
 
   try {
-    const resp = await fetch("http://127.0.0.1:5000/verificar_foto", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dni, foto: fotoData, foto_reniec: fotoReniecData })
+    const resp = await fetch("http://192.168.0.101:5000/verificar_foto", {
+     method: "POST",
+     headers: { "Content-Type": "application/json" },
+     body: JSON.stringify({ dni, foto: fotoData, foto_reniec: fotoReniecData })
     });
 
     const data = await resp.json();
@@ -226,3 +226,4 @@ window.onload = iniciarCamara;
 </script>
 </body>
 </html>
+
