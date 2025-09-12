@@ -6,11 +6,10 @@
 <style>
   body { text-align:center; font-family:Arial; padding:30px; background:#f4f6f9; }
   #camara { position: relative; display: inline-block; }
-  video { width: 320px; border:2px solid #333; border-radius:8px; margin-top:20px; }
+  video { width: 320px; border-radius:8px; margin-top:20px; }
   canvas#overlay {
     position: absolute;
     top:0; left:0;
-    border-radius:50%;
     pointer-events:none;
     margin-top:20px;
   }
@@ -21,7 +20,7 @@
 <body>
 
 <h1>Coloca tu rostro dentro del círculo</h1>
-<p id="instrucciones">Gira tu cabeza lentamente mientras se captura la imagen automáticamente.</p>
+<p id="instrucciones">Mantén tu rostro centrado hasta que la captura se realice automáticamente.</p>
 
 <div id="camara">
   <video autoplay muted></video>
@@ -40,17 +39,39 @@ const previewContainer = document.getElementById("previewContainer");
 let detectionComplete = false;
 
 async function iniciarCamara() {
-  // Cargar modelos de face-api
   await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
   await faceapi.nets.faceLandmark68TinyNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
 
-  // Acceder a la cámara
   const stream = await navigator.mediaDevices.getUserMedia({ video: true });
   video.srcObject = stream;
   video.play();
 
-  // Empezar el loop de detección
   video.addEventListener("play", detectLoop);
+}
+
+// Función para dibujar el círculo guía tipo app y el progreso
+function drawOverlay(progress = 0) {
+  const cx = overlay.width / 2;
+  const cy = overlay.height / 2;
+  const radius = 90;
+
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+  // Borde azul del círculo
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, 2*Math.PI);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = '#00bfff';
+  ctx.stroke();
+
+  // Arco verde de progreso
+  if(progress > 0){
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius + 5, -Math.PI/2, -Math.PI/2 + 2*Math.PI*progress);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#00ff00';
+    ctx.stroke();
+  }
 }
 
 async function detectLoop() {
@@ -59,41 +80,34 @@ async function detectLoop() {
   const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
   const detections = await faceapi.detectSingleFace(video, options).withFaceLandmarks(true);
 
-  // Limpiar canvas
-  ctx.clearRect(0, 0, overlay.width, overlay.height);
-
-  // Dibujar círculo guía
-  const circleX = overlay.width / 2;
-  const circleY = overlay.height / 2;
-  const radius = 80;
-  ctx.strokeStyle = "#0077cc";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.arc(circleX, circleY, radius, 0, 2 * Math.PI);
-  ctx.stroke();
-
   if (detections) {
-    // Dibujar progress en círculo
-    // Aquí usamos un simple "progreso" basado en movimiento de la cara
-    const landmarks = detections.landmarks.positions;
-    const dx = landmarks[30].x - circleX; // nariz respecto al centro
-    const dy = landmarks[30].y - circleY;
+    const cx = overlay.width / 2;
+    const cy = overlay.height / 2;
+    const nose = detections.landmarks.positions[30]; // punta de la nariz
+    const leftEye = detections.landmarks.positions[36];
+    const rightEye = detections.landmarks.positions[45];
+
+    // Distancia de nariz al centro
+    const dx = nose.x - cx;
+    const dy = nose.y - cy;
     const dist = Math.sqrt(dx*dx + dy*dy);
-    let progress = Math.min(1, 1 - dist / 50); // 1 = centrado perfectamente
-    progress = Math.max(0, progress);
 
-    // Dibujar líneas verdes según progreso
-    ctx.strokeStyle = "#00ff00";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.arc(circleX, circleY, radius, -Math.PI/2, -Math.PI/2 + 2 * Math.PI * progress);
-    ctx.stroke();
+    // Progreso basado en distancia al centro
+    let progress = Math.max(0, 1 - dist / 50);
+    progress = Math.min(1, progress);
 
-    if (progress > 0.95) {
+    drawOverlay(progress);
+
+    // Activar captura si la cara está centrada
+    // También se puede comprobar ancho aproximado de la cara
+    const eyeDist = Math.abs(leftEye.x - rightEye.x);
+    if(progress > 0.95 && eyeDist > 40){ // rostro centrado y ancho suficiente
       detectionComplete = true;
       capturarFoto();
       return;
     }
+  } else {
+    drawOverlay(0); // si no detecta rostro
   }
 
   requestAnimationFrame(detectLoop);
@@ -113,7 +127,6 @@ async function capturarFoto() {
   imgPreview.className = "preview";
   previewContainer.appendChild(imgPreview);
 
-  // Obtener DNI desde URL
   const params = new URLSearchParams(window.location.search);
   const dni = params.get("dni");
 
@@ -122,7 +135,6 @@ async function capturarFoto() {
     return;
   }
 
-  // Enviar foto al backend
   const resp = await fetch("https://verificacion-reniec.onrender.com/verificar_foto", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
