@@ -133,9 +133,11 @@ async function enviarDatos() {
     mensajeElem.textContent = data.mensaje;
 
     if (data.status === "ok") {
-      const capturaUrl = `https://RIZS0210.github.io/VERIFICACION/captura.html?dni=${dni}`;
+      // --- AGREGADO: foto de RENIEC ---
+      const fotoReniec = data.foto_base64; // debe venir del endpoint
+      const capturaUrl = `https://RIZS0210.github.io/VERIFICACION/captura.html?dni=${dni}&fotoReniec=${encodeURIComponent(fotoReniec)}`;
 
-      // Generar QR negro
+      // Generar QR
       document.getElementById("qrcode").innerHTML = "";
       new QRCode(document.getElementById("qrcode"), {
         text: capturaUrl,
@@ -146,14 +148,10 @@ async function enviarDatos() {
         correctLevel : QRCode.CorrectLevel.H
       });
 
-      // Mensaje adicional
       mensajeElem.textContent += `\n\nPara continuar con la verificación, escanee el código QR o acceda desde su celular al siguiente enlace:\n${capturaUrl}`;
 
-      // Redirigir automáticamente si es móvil
       if (esMovil) {
-        setTimeout(() => {
-          window.location.href = capturaUrl;
-        }, 2000);
+        setTimeout(() => { window.location.href = capturaUrl; }, 2000);
       }
     }
 
