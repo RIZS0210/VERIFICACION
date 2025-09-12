@@ -72,7 +72,8 @@ let fotoReniecData = null;
 const urlParams = new URLSearchParams(window.location.search);
 const fotoParam = urlParams.get("fotoReniec");
 if(fotoParam){
-  fotoReniecData = decodeURIComponent(fotoParam);
+  // Asegurarse que la cadena tenga prefijo data:image/jpeg;base64
+  fotoReniecData = fotoParam.startsWith("data:image") ? fotoParam : "data:image/jpeg;base64," + fotoParam;
 }
 
 const dni = urlParams.get("dni");
@@ -201,6 +202,7 @@ async function capturarFoto() {
   }
 
   try {
+    // Verificación final
     const resp = await fetch("https://face-app-k1b5.onrender.com/verificar_foto", {
      method: "POST",
      headers: { "Content-Type": "application/json" },
