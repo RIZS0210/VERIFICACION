@@ -36,6 +36,7 @@
       text-transform: uppercase;
     }
     #mensaje { margin-top: 15px; font-weight: bold; color: #444; white-space: pre-line; }
+    #qrcode { margin-top: 20px; display: flex; justify-content: center; }
   </style>
 </head>
 <body>
@@ -49,12 +50,18 @@
     <br>
     <input type="text" id="apellidos" placeholder="Ingrese Apellidos">
     <br>
-    <button onclick="enviarDatos()">Continuar a verificación facial</button>
+    <button onclick="enviarDatos()">Continuar</button>
   </div>
 
+  <div id="qrcode"></div>
   <p id="mensaje"></p>
 
+  <!-- Librería QRCode -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
   <script>
+    const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
     function validarDNI(input) {
       input.value = input.value.replace(/[^0-9]/g, "");
     }
@@ -80,8 +87,22 @@
         document.getElementById("mensaje").textContent = data.mensaje;
 
         if (data.status === "ok") {
-          // Redirigir a captura facial con DNI en la URL
-          window.location.href = `captura.html?dni=${dni}`;
+          const capturaUrl = `captura.html?dni=${dni}`;
+
+          if (esMovil) {
+            // Redirige directamente desde el celular
+            window.location.href = capturaUrl;
+          } else {
+            // PC: genera QR para abrir captura en celular
+            document.getElementById("qrcode").innerHTML = "";
+            new QRCode(document.getElementById("qrcode"), {
+              text: capturaUrl,
+              width: 200,
+              height: 200
+            });
+            document.getElementById("mensaje").textContent +=
+              "\nEscanea este QR o abre el link en tu celular para continuar con la verificación facial.";
+          }
         }
 
       } catch (error) {
