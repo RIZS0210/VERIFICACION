@@ -76,7 +76,7 @@
   <script>
     const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-    function iniciarVerificacion() {
+    async function iniciarVerificacion() {
       const dni = document.getElementById("dni").value.trim();
       const nombres = document.getElementById("nombres").value.trim();
       const apellidos = document.getElementById("apellidos").value.trim();
@@ -86,24 +86,35 @@
         return;
       }
 
-      if (esMovil) {
-        alert("Se solicitará acceso a la cámara para completar la verificación.");
-        // Aquí se podría iniciar el flujo de cámara con WebRTC o librerías externas
-      } else {
-        let baseURL = window.location.origin + window.location.pathname;
-        if (baseURL.endsWith("index.html")) {
-          baseURL = baseURL.replace("index.html", "");
-        }
-
-        document.getElementById("qrcode").innerHTML = "";
-        new QRCode(document.getElementById("qrcode"), {
-          text: baseURL,
-          width: 200,
-          height: 200
+      try {
+        // Enviar datos al backend Flask
+        const response = await fetch("http://192.168.0.101:8000/verificar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dni, nombres, apellidos })
         });
 
-        document.getElementById("mensaje").innerText =
-          "Escanea el código QR o ingresa a la siguiente dirección en tu celular: " + baseURL;
+        const data = await response.json();
+        document.getElementById("mensaje").innerText = data.mensaje;
+
+        if (esMovil) {
+          alert("Se solicitará acceso a la cámara para completar la verificación.");
+          // Aquí podrás implementar el acceso a la cámara en móvil
+        } else {
+          // Generar QR para abrir en celular
+          document.getElementById("qrcode").innerHTML = "";
+          new QRCode(document.getElementById("qrcode"), {
+            text: window.location.href,
+            width: 200,
+            height: 200
+          });
+
+          document.getElementById("mensaje").innerText +=
+            "\nEscanea el código QR o abre esta dirección en tu celular.";
+        }
+
+      } catch (error) {
+        document.getElementById("mensaje").innerText = "⚠️ Error al conectar con el servidor.";
       }
     }
 
@@ -114,4 +125,3 @@
   </script>
 </body>
 </html>
-
