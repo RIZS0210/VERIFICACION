@@ -53,6 +53,7 @@
       }
 
       try {
+        // Llamada al backend en Render
         const response = await fetch("https://verificacion-reniec.onrender.com/verificar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -63,8 +64,8 @@
         document.getElementById("mensaje").textContent = data.mensaje;
 
         if (data.status === "ok") {
-          // Aquí ponemos la URL completa de captura.html en el servidor
-          const capturaUrl = `https://verificacion-reniec.onrender.com/captura.html?dni=${dni}`;
+          // URL de captura en GitHub Pages (cambia username/mi-verificacion)
+          const capturaUrl = `https://username.github.io/mi-verificacion/pages/captura.html?dni=${dni}`;
 
           if (esMovil) {
             // Redirige automáticamente desde el celular
