@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Captura Facial</title>
+<style>
+  body { text-align:center; font-family:Arial; padding:30px; background:#f4f6f9;}
+  video, img { width: 320px; border:2px solid #333; border-radius:8px; margin-top:20px;}
+  #instrucciones { margin-top:20px; font-weight:bold; color:#444;}
+</style>
+</head>
+<body>
+<h1>Coloca tu rostro dentro del círculo</h1>
+<p id="instrucciones">Gira tu cabeza lentamente mientras se captura la imagen.</p>
+<div id="camara"></div>
+
+<script>
+async function iniciarCamara() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const video = document.createElement("video");
+        video.srcObject = stream;
+        video.autoplay = true;
+        document.getElementById("camara").appendChild(video);
+
+        const btnCapturar = document.createElement("button");
+        btnCapturar.innerText = "Capturar rostro";
+        document.getElementById("camara").appendChild(btnCapturar);
+
+        btnCapturar.onclick = async () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext("2d").drawImage(video, 0, 0);
+            const fotoData = canvas.toDataURL("image/jpeg");
+
+            // Obtener DNI desde URL
+            const params = new URLSearchParams(window.location.search);
+            const dni = params.get("dni");
+
+            // Enviar foto al backend
+            const resp = await fetch("https://verificacion-reniec.onrender.com/verificar_foto", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ dni, foto: fotoData })
+            });
+            const resultado = await resp.json();
+            alert(resultado.mensaje);
+        };
+
+    } catch (err) {
+        alert("No se pudo acceder a la cámara: " + err);
+    }
+}
+
+window.onload = iniciarCamara;
+</script>
+</body>
+</html>
