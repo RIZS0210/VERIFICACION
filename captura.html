@@ -2,19 +2,57 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Captura Facial Automática</title>
 <style>
-  body { text-align:center; font-family:Arial; padding:30px; background:#f4f6f9; }
-  #camara { position: relative; display: inline-block; }
-  video { width: 320px; border-radius:8px; margin-top:20px; }
-  canvas#overlay {
-    position: absolute;
-    top:0; left:0;
-    pointer-events:none;
-    margin-top:20px;
+  body {
+    margin:0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg, #e0f7fa, #ffffff); /* fondo suave degradado */
+    color:#333;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    height:100vh;
+    overflow:hidden;
   }
-  img.preview { width: 320px; margin-top:20px; border:2px solid #333; border-radius:8px; }
-  #instrucciones { margin-top:20px; font-weight:bold; color:#444; }
+  h1 {
+    margin-top:20px;
+    font-size:1.5rem;
+    text-align:center;
+    color:#0077cc;
+  }
+  #instrucciones {
+    margin: 10px;
+    font-weight:500;
+    color:#555;
+    text-align:center;
+  }
+  #camara {
+    position: relative;
+    width: 90%;
+    max-width: 400px;
+    flex:1;
+  }
+  video {
+    display:none; /* El video no se muestra, se dibuja en canvas */
+  }
+  canvas#overlay {
+    width: 100%;
+    height: 100%;
+    display:block;
+    border-radius:12px;
+    background:#f0f0f0;
+  }
+  #previewContainer img {
+    width: 90%;
+    max-width: 400px;
+    margin-top:20px;
+    border:2px solid #0077cc;
+    border-radius:12px;
+    box-shadow:0 0 15px rgba(0,119,204,0.5);
+  }
 </style>
 </head>
 <body>
@@ -23,12 +61,11 @@
 <p id="instrucciones">Mantén tu rostro centrado hasta que la captura se realice automáticamente.</p>
 
 <div id="camara">
-  <video autoplay muted></video>
-  <canvas id="overlay" width="320" height="240"></canvas>
+  <video autoplay muted playsinline></video>
+  <canvas id="overlay"></canvas>
 </div>
 <div id="previewContainer"></div>
 
-<!-- face-api.js -->
 <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
 
 <script>
@@ -37,39 +74,64 @@ const overlay = document.getElementById("overlay");
 const ctx = overlay.getContext("2d");
 const previewContainer = document.getElementById("previewContainer");
 let detectionComplete = false;
+let pulse = 0;
 
 async function iniciarCamara() {
   await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
   await faceapi.nets.faceLandmark68TinyNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
 
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
   video.srcObject = stream;
   video.play();
 
-  video.addEventListener("play", detectLoop);
+  video.onloadedmetadata = () => {
+    overlay.width = video.videoWidth;
+    overlay.height = video.videoHeight;
+    detectLoop();
+  };
 }
 
-// Función para dibujar el círculo guía tipo app y el progreso
 function drawOverlay(progress = 0) {
   const cx = overlay.width / 2;
   const cy = overlay.height / 2;
-  const radius = 90;
+  const radius = Math.min(overlay.width, overlay.height)/3;
 
-  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  ctx.clearRect(0,0,overlay.width, overlay.height);
 
-  // Borde azul del círculo
+  pulse += 0.05;
+  const glow = 3 + 2*Math.sin(pulse);
+
+  // Dibujar video dentro del círculo
+  ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, 2*Math.PI);
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = '#00bfff';
-  ctx.stroke();
+  ctx.clip();
+  ctx.drawImage(video, 0, 0, overlay.width, overlay.height);
+  ctx.restore();
 
-  // Arco verde de progreso
+  // Fondo suave fuera del círculo
+  ctx.fillStyle = "rgba(200, 230, 240, 0.6)";
+  ctx.beginPath();
+  ctx.rect(0,0,overlay.width,overlay.height);
+  ctx.arc(cx, cy, radius, 0, 2*Math.PI, true);
+  ctx.fill();
+
+  // Borde pulsante azul moderno
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, 2*Math.PI);
+  ctx.lineWidth = 4 + glow/2;
+  ctx.strokeStyle = "#0077cc";
+  ctx.shadowColor = "#0077cc";
+  ctx.shadowBlur = glow*3;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Arco verde brillante de progreso
   if(progress > 0){
     ctx.beginPath();
     ctx.arc(cx, cy, radius + 5, -Math.PI/2, -Math.PI/2 + 2*Math.PI*progress);
     ctx.lineWidth = 5;
-    ctx.strokeStyle = '#00ff00';
+    ctx.strokeStyle = "#00cc66";
     ctx.stroke();
   }
 }
@@ -80,34 +142,31 @@ async function detectLoop() {
   const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
   const detections = await faceapi.detectSingleFace(video, options).withFaceLandmarks(true);
 
-  if (detections) {
-    const cx = overlay.width / 2;
-    const cy = overlay.height / 2;
-    const nose = detections.landmarks.positions[30]; // punta de la nariz
+  const cx = overlay.width / 2;
+  const cy = overlay.height / 2;
+
+  if(detections){
+    const nose = detections.landmarks.positions[30];
     const leftEye = detections.landmarks.positions[36];
     const rightEye = detections.landmarks.positions[45];
 
-    // Distancia de nariz al centro
     const dx = nose.x - cx;
     const dy = nose.y - cy;
     const dist = Math.sqrt(dx*dx + dy*dy);
 
-    // Progreso basado en distancia al centro
     let progress = Math.max(0, 1 - dist / 50);
     progress = Math.min(1, progress);
 
     drawOverlay(progress);
 
-    // Activar captura si la cara está centrada
-    // También se puede comprobar ancho aproximado de la cara
     const eyeDist = Math.abs(leftEye.x - rightEye.x);
-    if(progress > 0.95 && eyeDist > 40){ // rostro centrado y ancho suficiente
+    if(progress > 0.95 && eyeDist > 40){
       detectionComplete = true;
       capturarFoto();
       return;
     }
   } else {
-    drawOverlay(0); // si no detecta rostro
+    drawOverlay(0);
   }
 
   requestAnimationFrame(detectLoop);
@@ -121,10 +180,8 @@ async function capturarFoto() {
 
   const fotoData = canvas.toDataURL("image/jpeg");
 
-  // Mostrar preview
   const imgPreview = document.createElement("img");
   imgPreview.src = fotoData;
-  imgPreview.className = "preview";
   previewContainer.appendChild(imgPreview);
 
   const params = new URLSearchParams(window.location.search);
@@ -147,5 +204,6 @@ async function capturarFoto() {
 
 window.onload = iniciarCamara;
 </script>
+
 </body>
 </html>
