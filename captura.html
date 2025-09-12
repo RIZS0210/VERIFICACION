@@ -8,43 +8,53 @@
   body {
     margin:0;
     font-family: 'Segoe UI', Arial, sans-serif;
-    background: linear-gradient(135deg, #e0f7fa, #ffffff); 
+    background: linear-gradient(135deg, #d0ebff, #ffffff); 
     color:#333;
     display:flex;
     flex-direction:column;
     align-items:center;
-    justify-content:flex-start;
+    justify-content:center;
     height:100vh;
     overflow:hidden;
+    transition: all 0.3s ease;
   }
+
+  h1, #instrucciones, #camara, #previewContainer {
+    transition: all 0.3s ease;
+  }
+
   h1 {
-    margin-top:20px;
-    font-size:1.5rem;
+    margin-top:0;
+    font-size:1.6rem;
     text-align:center;
     color:#0077cc;
   }
+
   #instrucciones {
     margin: 10px;
     font-weight:500;
     color:#555;
     text-align:center;
   }
+
   #camara {
     position: relative;
     width: 90%;
-    max-width: 400px;
+    max-width: 480px;
     flex:1;
   }
-  video {
-    display:none;
-  }
+
+  video { display:none; }
+
   canvas#overlay {
     width: 100%;
     height: 100%;
     display:block;
-    border-radius:12px;
+    border-radius:18px;
     background:#f0f0f0;
+    box-shadow:0 10px 25px rgba(0,0,0,0.1);
   }
+
   #previewContainer img {
     width: 90%;
     max-width: 400px;
@@ -53,6 +63,32 @@
     border-radius:12px;
     box-shadow:0 0 15px rgba(0,119,204,0.5);
   }
+
+  #verificando {
+    display:none;
+    font-size:2rem;
+    font-weight:bold;
+    color:#0077cc;
+    animation: pulse 1.5s infinite;
+    text-align:center;
+  }
+
+  @keyframes pulse {
+    0% { opacity: 0.4; }
+    50% { opacity: 1; }
+    100% { opacity: 0.4; }
+  }
+
+  #resultado {
+    display:none;
+    font-size:2rem;
+    font-weight:bold;
+    text-align:center;
+    margin-top:20px;
+  }
+
+  #resultado.ok { color: #00cc66; }
+  #resultado.error { color: #cc3300; }
 </style>
 </head>
 <body>
@@ -65,18 +101,22 @@
   <canvas id="overlay"></canvas>
 </div>
 <div id="previewContainer"></div>
+<p id="verificando">Verificando identidad...</p>
+<p id="resultado"></p>
 
 <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
-
 <script>
 const video = document.querySelector("video");
 const overlay = document.getElementById("overlay");
 const ctx = overlay.getContext("2d");
 const previewContainer = document.getElementById("previewContainer");
+const verificandoMsg = document.getElementById("verificando");
+const resultadoMsg = document.getElementById("resultado");
+
 let detectionComplete = false;
 let pulse = 0;
-let progressTotal = 0;
-let haloAngle = 0;
+let progressTotal = 0; 
+let haloAngle = 0; 
 
 async function iniciarCamara() {
   await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
@@ -93,13 +133,13 @@ async function iniciarCamara() {
   };
 }
 
+// Dibujar overlay como antes
 function drawOverlay(progress = 0) {
   const cx = overlay.width / 2;
   const cy = overlay.height / 2;
   const radius = Math.min(overlay.width, overlay.height)/2.2;
 
   ctx.clearRect(0,0,overlay.width, overlay.height);
-
   pulse += 0.05;
   haloAngle += 0.02;
   const glow = 3 + 2*Math.sin(pulse);
@@ -168,13 +208,13 @@ async function detectLoop() {
     frameProgress = Math.min(1, frameProgress);
 
     progressTotal = Math.min(1, progressTotal + frameProgress * 0.01);
-
     drawOverlay(progressTotal);
 
     const eyeDist = Math.abs(leftEye.x - rightEye.x);
     if(progressTotal >= 0.95 && eyeDist > 40){
       detectionComplete = true;
-      capturarFoto();
+      mostrarVerificando();
+      await capturarFoto();
       return;
     }
   } else {
@@ -184,6 +224,11 @@ async function detectLoop() {
   requestAnimationFrame(detectLoop);
 }
 
+function mostrarVerificando() {
+  document.querySelectorAll('h1, #instrucciones, #camara, #previewContainer').forEach(el => el.style.display = 'none');
+  verificandoMsg.style.display = 'block';
+}
+
 async function capturarFoto() {
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
@@ -191,11 +236,6 @@ async function capturarFoto() {
   canvas.getContext("2d").drawImage(video, 0, 0);
 
   const fotoData = canvas.toDataURL("image/jpeg");
-
-  const imgPreview = document.createElement("img");
-  imgPreview.src = fotoData;
-  previewContainer.appendChild(imgPreview);
-
   const params = new URLSearchParams(window.location.search);
   const dni = params.get("dni");
 
@@ -204,19 +244,35 @@ async function capturarFoto() {
     return;
   }
 
-  // Cambiado a tu servidor local
-  const resp = await fetch(`http://192.168.0.101:5000/verificar_foto`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ dni, foto: fotoData })
-  });
-  const resultado = await resp.json();
+  try {
+    const resp = await fetch("https://verificacion-reniec.onrender.com/verificar_foto", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dni, foto: fotoData })
+    });
 
-  alert(resultado.mensaje);
+    const data = await resp.json();
+
+    verificandoMsg.style.display = 'none';
+    resultadoMsg.style.display = 'block';
+    if(data.status === "ok"){
+      resultadoMsg.textContent = "✅ Verificación exitosa";
+      resultadoMsg.className = "ok";
+    } else {
+      resultadoMsg.textContent = "❌ Verificación fallida";
+      resultadoMsg.className = "error";
+    }
+
+  } catch (error) {
+    verificandoMsg.style.display = 'none';
+    resultadoMsg.style.display = 'block';
+    resultadoMsg.textContent = "❌ Error de conexión";
+    resultadoMsg.className = "error";
+    console.error(error);
+  }
 }
 
 window.onload = iniciarCamara;
 </script>
-
 </body>
 </html>
