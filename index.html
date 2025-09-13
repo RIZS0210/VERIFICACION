@@ -116,12 +116,12 @@ async function enviarDatos() {
     mensajeElem.innerHTML = data.mensaje;
 
     if (data.status === "ok") {
-      // Se espera un array de fotos RENIEC
+      // Se espera un array de fotos RENIEC y sus IDs
       const fotosReniec = data.fotos_base64 || [];
       const reniecIds = data.reniec_ids || [];
 
-      // Tomar la primera foto como referencia para la captura
-      const capturaUrl = `https://RIZS0210.github.io/VERIFICACION/captura.html?dni=${dni}&fotoReniec=${encodeURIComponent(fotosReniec[0] || '')}&reniecIds=${encodeURIComponent(JSON.stringify(reniecIds))}`;
+      // Tomar la primera foto como referencia
+      const capturaUrl = `https://RIZS0210.github.io/VERIFICACION/captura.html?dni=${dni}&fotoId=${encodeURIComponent(fotosReniec[0] || '')}&reniecIds=${encodeURIComponent(JSON.stringify(reniecIds))}`;
 
       // Generar QR
       document.getElementById("qrcode").innerHTML = "";
