@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Captura Facial Automática Mejorada</title>
+<title>Captura Facial Automática</title>
 <style>
 body {
   margin:0;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  background: linear-gradient(135deg, #d0ebff, #ffffff); 
+  font-family:'Segoe UI', Arial, sans-serif;
+  background: linear-gradient(135deg, #d0ebff, #ffffff);
   color:#333;
   display:flex;
   flex-direction:column;
@@ -18,9 +18,9 @@ body {
   overflow:hidden;
 }
 
-h1 { margin-top:0; font-size:1.6rem; text-align:center; color:#0077cc; transition: all 0.3s ease; }
-#instrucciones { margin:10px; font-weight:500; color:#555; text-align:center; transition: all 0.3s ease; }
-#camara { position: relative; width: 90%; max-width:480px; flex:1; transition: all 0.3s ease; }
+h1 { margin-top:0; font-size:1.6rem; text-align:center; color:#0077cc; }
+#instrucciones { margin:10px; font-weight:500; color:#555; text-align:center; }
+#camara { position:relative; width:90%; max-width:480px; flex:1; }
 video { display:none; }
 canvas#overlay { width:100%; height:100%; display:block; border-radius:18px; background:#f0f0f0; }
 #previewContainer img { width:90%; max-width:400px; margin-top:20px; border:2px solid #0077cc; border-radius:12px; box-shadow:0 0 15px rgba(0,119,204,0.5); }
@@ -29,14 +29,8 @@ canvas#overlay { width:100%; height:100%; display:block; border-radius:18px; bac
 #resultado { display:none; font-size:2rem; font-weight:bold; text-align:center; margin-top:20px; }
 #resultado.ok { color:#00cc66; }
 #resultado.error { color:#cc3300; }
-#progressBar {
-  width: 90%; max-width:480px; height:20px;
-  background:#eee; border-radius:10px; margin-top:10px;
-}
-#progressFill {
-  height:100%; width:0%; background:#00cc66; border-radius:10px;
-  transition: width 0.2s;
-}
+#progressBar { width:90%; max-width:480px; height:20px; background:#eee; border-radius:10px; margin-top:10px; }
+#progressFill { height:100%; width:0%; background:#00cc66; border-radius:10px; transition: width 0.2s; }
 </style>
 </head>
 <body>
@@ -65,13 +59,12 @@ const progressFill = document.getElementById("progressFill");
 
 let detectionComplete = false;
 let pulse = 0;
-let progressTotal = 0; 
-let haloAngle = 0; 
-let capturas = []; // Array para fotos múltiples
+let progressTotal = 0;
+let capturas = [];
 
-// --- ID temporal y DNI ---
+// --- DNI y fotoId desde URL ---
 const urlParams = new URLSearchParams(window.location.search);
-const fotoId = urlParams.get("fotoId"); // ahora usamos ID en vez de base64
+const fotoId = urlParams.get("fotoId");
 const dni = urlParams.get("dni");
 
 if(!dni || !fotoId){
@@ -100,14 +93,13 @@ async function iniciarCamara() {
 }
 
 // --- Dibujar overlay ---
-function drawOverlay(progress = 0) {
-  const cx = overlay.width / 2;
-  const cy = overlay.height / 2;
+function drawOverlay(progress = 0){
+  const cx = overlay.width/2;
+  const cy = overlay.height/2;
   const radius = Math.min(overlay.width, overlay.height)/2.2;
 
   ctx.clearRect(0,0,overlay.width, overlay.height);
   pulse += 0.05;
-  haloAngle += 0.02;
   const glow = 3 + 2*Math.sin(pulse);
 
   // Clip círculo
@@ -145,23 +137,21 @@ function drawOverlay(progress = 0) {
   }
 }
 
-// --- Throttling detección ---
+// --- Detección facial ---
 let lastDetectTime = 0;
-const detectInterval = 200; // ms
-
-async function detectLoop() {
-  if (detectionComplete) return;
+const detectInterval = 200;
+async function detectLoop(){
+  if(detectionComplete) return;
   const now = performance.now();
-  if (now - lastDetectTime > detectInterval) {
+  if(now - lastDetectTime > detectInterval){
     lastDetectTime = now;
     await detectarRostro();
   }
   requestAnimationFrame(detectLoop);
 }
 
-// --- Detección facial ---
-async function detectarRostro() {
-  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
+async function detectarRostro(){
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize:160, scoreThreshold:0.5 });
   const detections = await faceapi.detectSingleFace(video, options).withFaceLandmarks(true);
 
   if(detections){
@@ -175,23 +165,21 @@ async function detectarRostro() {
     const dy = nose.y - cy;
     const dist = Math.sqrt(dx*dx + dy*dy);
     const maxDist = 100;
-    let frameProgress = Math.max(0, 1 - dist / maxDist);
+    let frameProgress = Math.max(0, 1 - dist/maxDist);
     frameProgress = Math.min(1, frameProgress);
 
-    progressTotal = Math.min(1, progressTotal + frameProgress * 0.02);
+    progressTotal = Math.min(1, progressTotal + frameProgress*0.02);
     drawOverlay(progressTotal);
     progressFill.style.width = `${Math.floor(progressTotal*100)}%`;
 
     const eyeDist = Math.abs(leftEye.x - rightEye.x);
     if(progressTotal >= 0.95 && eyeDist > 40){
-      // Captura 3 fotos con 0.5s de diferencia
       detectionComplete = true;
       mostrarVerificando();
       for(let i=0;i<3;i++){
         await new Promise(r => setTimeout(r, i*500));
         await capturarFoto();
       }
-      return;
     }
   } else {
     drawOverlay(progressTotal);
@@ -199,22 +187,21 @@ async function detectarRostro() {
 }
 
 // --- Mostrar mensaje de verificando ---
-function mostrarVerificando() {
-  document.querySelectorAll('h1, #instrucciones, #camara, #previewContainer, #progressBar').forEach(el=>el.style.display='none');
+function mostrarVerificando(){
+  document.querySelectorAll('h1,#instrucciones,#camara,#previewContainer,#progressBar').forEach(el=>el.style.display='none');
   verificandoMsg.style.display='block';
 }
 
-// --- Captura de foto ---
-async function capturarFoto() {
+// --- Captura foto ---
+async function capturarFoto(){
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
-  canvas.getContext("2d").drawImage(video, 0, 0);
+  canvas.getContext("2d").drawImage(video,0,0);
 
   const fotoData = canvas.toDataURL("image/jpeg");
   capturas.push(fotoData);
 
-  // Mostrar miniatura
   const img = document.createElement("img");
   img.src = fotoData;
   document.getElementById("previewContainer").appendChild(img);
@@ -225,29 +212,29 @@ async function capturarFoto() {
 }
 
 // --- Enviar fotos al backend ---
-async function enviarFotos() {
-  try {
+async function enviarFotos(){
+  try{
     const resp = await fetch("https://face-app-k1b5.onrender.com/verificar_foto", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
         dni,
         fotos: capturas,
-        foto_reniec_id: fotoId // ahora enviamos solo el ID
+        foto_reniec_id: fotoId
       })
     });
 
     const data = await resp.json();
-    verificandoMsg.style.display = 'none';
-    resultadoMsg.style.display = 'block';
+    verificandoMsg.style.display='none';
+    resultadoMsg.style.display='block';
     resultadoMsg.textContent = data.mensaje;
-    resultadoMsg.className = data.status==="ok" ? "ok" : "error";
+    resultadoMsg.className = data.status==="ok"?"ok":"error";
 
   } catch(err){
-    verificandoMsg.style.display = 'none';
-    resultadoMsg.style.display = 'block';
-    resultadoMsg.textContent = "❌ Error de conexión";
-    resultadoMsg.className = "error";
+    verificandoMsg.style.display='none';
+    resultadoMsg.style.display='block';
+    resultadoMsg.textContent="❌ Error de conexión";
+    resultadoMsg.className="error";
     console.error(err);
   }
 }
