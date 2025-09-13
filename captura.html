@@ -68,10 +68,9 @@ let pulse = 0;
 let progressTotal = 0;
 let capturas = [];
 
-// --- Obtener DNI y Base64 de RENIEC desde URL ---
-const urlParams = new URLSearchParams(window.location.search);
-let fotoReniecBase64 = urlParams.get("fotoReniec");
-let dni = urlParams.get("dni");
+// --- Obtener DNI y Base64 de RENIEC desde sessionStorage ---
+let fotoReniecBase64 = sessionStorage.getItem("fotoReniec");
+let dni = sessionStorage.getItem("dniReniec");
 
 if(!dni || !fotoReniecBase64){
   alert("❌ Datos incompletos, será redirigido a la página inicial.");
