@@ -14,15 +14,8 @@
     color: #333;
   }
 
-  h1 {
-    color: #0077cc;
-    margin-bottom: 10px;
-  }
-
-  #formulario h2 {
-    color: #555;
-    margin-bottom: 20px;
-  }
+  h1 { color: #0077cc; margin-bottom: 10px; }
+  #formulario h2 { color: #555; margin-bottom: 20px; }
 
   input {
     padding: 12px;
@@ -62,19 +55,8 @@
     box-shadow: 0 6px 12px rgba(0,95,163,0.4);
   }
 
-  #qrcode {
-    margin-top: 20px;
-    display: flex;
-    justify-content: center;
-  }
-
-  #mensaje {
-    margin-top: 15px;
-    font-weight: bold;
-    color: #444;
-    white-space: pre-line;
-  }
-
+  #qrcode { margin-top: 20px; display: flex; justify-content: center; }
+  #mensaje { margin-top: 15px; font-weight: bold; color: #444; white-space: pre-line; }
   #formulario {
     background: rgba(255,255,255,0.9);
     display: inline-block;
@@ -122,6 +104,7 @@ async function enviarDatos() {
   }
 
   try {
+    // Llamada al servidor para validar datos y obtener fotos RENIEC
     const response = await fetch("https://verificacion-reniec.onrender.com/verificar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -130,12 +113,15 @@ async function enviarDatos() {
 
     const data = await response.json();
     const mensajeElem = document.getElementById("mensaje");
-    mensajeElem.textContent = data.mensaje;
+    mensajeElem.innerHTML = data.mensaje;
 
     if (data.status === "ok") {
-      // --- AGREGADO: foto de RENIEC ---
-      const fotoReniec = data.foto_base64; // debe venir del endpoint
-      const capturaUrl = `https://RIZS0210.github.io/VERIFICACION/captura.html?dni=${dni}&fotoReniec=${encodeURIComponent(fotoReniec)}`;
+      // Se espera un array de fotos RENIEC
+      const fotosReniec = data.fotos_base64 || [];
+      const reniecIds = data.reniec_ids || [];
+
+      // Tomar la primera foto como referencia para la captura
+      const capturaUrl = `https://RIZS0210.github.io/VERIFICACION/captura.html?dni=${dni}&fotoReniec=${encodeURIComponent(fotosReniec[0] || '')}&reniecIds=${encodeURIComponent(JSON.stringify(reniecIds))}`;
 
       // Generar QR
       document.getElementById("qrcode").innerHTML = "";
@@ -148,7 +134,8 @@ async function enviarDatos() {
         correctLevel : QRCode.CorrectLevel.H
       });
 
-      mensajeElem.textContent += `\n\nPara continuar con la verificación, escanee el código QR o acceda desde su celular al siguiente enlace:\n${capturaUrl}`;
+      mensajeElem.innerHTML += "<br><br>Para continuar, escanee el código QR o acceda desde su celular:<br>" +
+        `<a href="${capturaUrl}" target="_blank">${capturaUrl}</a>`;
 
       if (esMovil) {
         setTimeout(() => { window.location.href = capturaUrl; }, 2000);
