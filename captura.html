@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Captura Facial Automatica</title>
+<title>Captura Facial Automática Mejorada</title>
 <style>
 body {
   margin:0;
@@ -18,38 +18,38 @@ body {
   overflow:hidden;
 }
 
-h1, #instrucciones, #camara, #previewContainer {
-  transition: all 0.3s ease;
-}
-
-h1 { margin-top:0; font-size:1.6rem; text-align:center; color:#0077cc; }
-#instrucciones { margin:10px; font-weight:500; color:#555; text-align:center; }
-
-#camara { position: relative; width: 90%; max-width:480px; flex:1; }
+h1 { margin-top:0; font-size:1.6rem; text-align:center; color:#0077cc; transition: all 0.3s ease; }
+#instrucciones { margin:10px; font-weight:500; color:#555; text-align:center; transition: all 0.3s ease; }
+#camara { position: relative; width: 90%; max-width:480px; flex:1; transition: all 0.3s ease; }
 video { display:none; }
-
-canvas#overlay { width:100%; height:100%; display:block; border-radius:18px; background:#f0f0f0; box-shadow:0 10px 25px rgba(0,0,0,0.1); }
-
+canvas#overlay { width:100%; height:100%; display:block; border-radius:18px; background:#f0f0f0; }
 #previewContainer img { width:90%; max-width:400px; margin-top:20px; border:2px solid #0077cc; border-radius:12px; box-shadow:0 0 15px rgba(0,119,204,0.5); }
-
 #verificando { display:none; font-size:2rem; font-weight:bold; color:#0077cc; animation: pulse 1.5s infinite; text-align:center; }
 @keyframes pulse { 0%{opacity:0.4;} 50%{opacity:1;} 100%{opacity:0.4;} }
-
 #resultado { display:none; font-size:2rem; font-weight:bold; text-align:center; margin-top:20px; }
 #resultado.ok { color:#00cc66; }
 #resultado.error { color:#cc3300; }
+#progressBar {
+  width: 90%; max-width:480px; height:20px;
+  background:#eee; border-radius:10px; margin-top:10px;
+}
+#progressFill {
+  height:100%; width:0%; background:#00cc66; border-radius:10px;
+  transition: width 0.2s;
+}
 </style>
 </head>
 <body>
 
 <h1>Coloca tu rostro dentro del círculo</h1>
-<p id="instrucciones">Gira tu rostro lentamente para capturar varios angulos automáticamente.</p>
+<p id="instrucciones">Gira tu rostro lentamente para capturar varios ángulos automáticamente.</p>
 
 <div id="camara">
   <video autoplay muted playsinline></video>
   <canvas id="overlay"></canvas>
 </div>
 
+<div id="progressBar"><div id="progressFill"></div></div>
 <div id="previewContainer"></div>
 <p id="verificando">Verificando identidad...</p>
 <p id="resultado"></p>
@@ -61,38 +61,45 @@ const overlay = document.getElementById("overlay");
 const ctx = overlay.getContext("2d");
 const verificandoMsg = document.getElementById("verificando");
 const resultadoMsg = document.getElementById("resultado");
+const progressFill = document.getElementById("progressFill");
 
 let detectionComplete = false;
 let pulse = 0;
 let progressTotal = 0; 
 let haloAngle = 0; 
+let capturas = []; // Array para fotos múltiples
 
-// Tomar foto de RENIEC desde URL
-let fotoReniecData = null;
+// --- ID temporal y DNI ---
 const urlParams = new URLSearchParams(window.location.search);
-const fotoParam = urlParams.get("fotoReniec");
-if(fotoParam){
-  // Asegurarse que la cadena tenga prefijo data:image/jpeg;base64
-  fotoReniecData = fotoParam.startsWith("data:image") ? fotoParam : "data:image/jpeg;base64," + fotoParam;
-}
-
+const fotoId = urlParams.get("fotoId"); // ahora usamos ID en vez de base64
 const dni = urlParams.get("dni");
 
-async function iniciarCamara() {
-  await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
-  await faceapi.nets.faceLandmark68TinyNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
-
-  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-  video.srcObject = stream;
-  video.play();
-
-  video.onloadedmetadata = () => {
-    overlay.width = video.videoWidth;
-    overlay.height = video.videoHeight;
-    detectLoop();
-  };
+if(!dni || !fotoId){
+  alert("❌ Datos incompletos, regrese a la página inicial.");
 }
 
+// --- Inicializar cámara ---
+async function iniciarCamara() {
+  try {
+    await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
+    await faceapi.nets.faceLandmark68TinyNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
+
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+    video.srcObject = stream;
+    video.play();
+
+    video.onloadedmetadata = () => {
+      overlay.width = video.videoWidth;
+      overlay.height = video.videoHeight;
+      detectLoop();
+    };
+  } catch(err) {
+    alert("❌ Permita el acceso a la cámara para continuar.");
+    console.error(err);
+  }
+}
+
+// --- Dibujar overlay ---
 function drawOverlay(progress = 0) {
   const cx = overlay.width / 2;
   const cy = overlay.height / 2;
@@ -103,6 +110,7 @@ function drawOverlay(progress = 0) {
   haloAngle += 0.02;
   const glow = 3 + 2*Math.sin(pulse);
 
+  // Clip círculo
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, 2*Math.PI);
@@ -110,21 +118,24 @@ function drawOverlay(progress = 0) {
   ctx.drawImage(video, 0, 0, overlay.width, overlay.height);
   ctx.restore();
 
+  // Oscurecer alrededor
   ctx.fillStyle = "rgba(200, 230, 240, 0.6)";
   ctx.beginPath();
   ctx.rect(0,0,overlay.width,overlay.height);
   ctx.arc(cx, cy, radius, 0, 2*Math.PI, true);
   ctx.fill();
 
+  // Círculo halo
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, 2*Math.PI);
   ctx.lineWidth = 4 + glow/2;
-  ctx.strokeStyle = "#0077cc";
-  ctx.shadowColor = "#0077cc";
+  ctx.strokeStyle = progress>0.8 ? "#00cc66" : "#0077cc";
+  ctx.shadowColor = ctx.strokeStyle;
   ctx.shadowBlur = glow*3;
   ctx.stroke();
   ctx.shadowBlur = 0;
 
+  // Barra de progreso circular
   if(progress > 0){
     ctx.beginPath();
     ctx.arc(cx, cy, radius + 5, -Math.PI/2, -Math.PI/2 + 2*Math.PI*progress);
@@ -132,28 +143,30 @@ function drawOverlay(progress = 0) {
     ctx.strokeStyle = "#00cc66";
     ctx.stroke();
   }
-
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius + 12, haloAngle, haloAngle + Math.PI/3);
-  ctx.lineWidth = 6;
-  const gradient = ctx.createLinearGradient(cx - radius, cy - radius, cx + radius, cy + radius);
-  gradient.addColorStop(0, 'rgba(0,119,204,0)');
-  gradient.addColorStop(0.5, 'rgba(0,119,204,0.5)');
-  gradient.addColorStop(1, 'rgba(0,119,204,0)');
-  ctx.strokeStyle = gradient;
-  ctx.stroke();
 }
+
+// --- Throttling detección ---
+let lastDetectTime = 0;
+const detectInterval = 200; // ms
 
 async function detectLoop() {
   if (detectionComplete) return;
+  const now = performance.now();
+  if (now - lastDetectTime > detectInterval) {
+    lastDetectTime = now;
+    await detectarRostro();
+  }
+  requestAnimationFrame(detectLoop);
+}
 
+// --- Detección facial ---
+async function detectarRostro() {
   const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.5 });
   const detections = await faceapi.detectSingleFace(video, options).withFaceLandmarks(true);
 
-  const cx = overlay.width / 2;
-  const cy = overlay.height / 2;
-
   if(detections){
+    const cx = overlay.width/2;
+    const cy = overlay.height/2;
     const nose = detections.landmarks.positions[30];
     const leftEye = detections.landmarks.positions[36];
     const rightEye = detections.landmarks.positions[45];
@@ -161,33 +174,37 @@ async function detectLoop() {
     const dx = nose.x - cx;
     const dy = nose.y - cy;
     const dist = Math.sqrt(dx*dx + dy*dy);
-
     const maxDist = 100;
     let frameProgress = Math.max(0, 1 - dist / maxDist);
     frameProgress = Math.min(1, frameProgress);
 
-    progressTotal = Math.min(1, progressTotal + frameProgress * 0.01);
+    progressTotal = Math.min(1, progressTotal + frameProgress * 0.02);
     drawOverlay(progressTotal);
+    progressFill.style.width = `${Math.floor(progressTotal*100)}%`;
 
     const eyeDist = Math.abs(leftEye.x - rightEye.x);
     if(progressTotal >= 0.95 && eyeDist > 40){
+      // Captura 3 fotos con 0.5s de diferencia
       detectionComplete = true;
       mostrarVerificando();
-      await capturarFoto();
+      for(let i=0;i<3;i++){
+        await new Promise(r => setTimeout(r, i*500));
+        await capturarFoto();
+      }
       return;
     }
   } else {
     drawOverlay(progressTotal);
   }
-
-  requestAnimationFrame(detectLoop);
 }
 
+// --- Mostrar mensaje de verificando ---
 function mostrarVerificando() {
-  document.querySelectorAll('h1, #instrucciones, #camara, #previewContainer').forEach(el => el.style.display = 'none');
-  verificandoMsg.style.display = 'block';
+  document.querySelectorAll('h1, #instrucciones, #camara, #previewContainer, #progressBar').forEach(el=>el.style.display='none');
+  verificandoMsg.style.display='block';
 }
 
+// --- Captura de foto ---
 async function capturarFoto() {
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
@@ -195,32 +212,43 @@ async function capturarFoto() {
   canvas.getContext("2d").drawImage(video, 0, 0);
 
   const fotoData = canvas.toDataURL("image/jpeg");
+  capturas.push(fotoData);
 
-  if(!dni || !fotoReniecData){
-    alert("Error: No se encontraron datos de DNI o foto de RENIEC.");
-    return;
+  // Mostrar miniatura
+  const img = document.createElement("img");
+  img.src = fotoData;
+  document.getElementById("previewContainer").appendChild(img);
+
+  if(capturas.length === 3){
+    await enviarFotos();
   }
+}
 
+// --- Enviar fotos al backend ---
+async function enviarFotos() {
   try {
-    // Verificación final
     const resp = await fetch("https://face-app-k1b5.onrender.com/verificar_foto", {
-     method: "POST",
-     headers: { "Content-Type": "application/json" },
-     body: JSON.stringify({ dni, foto: fotoData, foto_reniec: fotoReniecData })
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        dni,
+        fotos: capturas,
+        foto_reniec_id: fotoId // ahora enviamos solo el ID
+      })
     });
 
     const data = await resp.json();
     verificandoMsg.style.display = 'none';
     resultadoMsg.style.display = 'block';
     resultadoMsg.textContent = data.mensaje;
-    resultadoMsg.className = data.status === "ok" ? "ok" : "error";
+    resultadoMsg.className = data.status==="ok" ? "ok" : "error";
 
-  } catch (error) {
+  } catch(err){
     verificandoMsg.style.display = 'none';
     resultadoMsg.style.display = 'block';
     resultadoMsg.textContent = "❌ Error de conexión";
     resultadoMsg.className = "error";
-    console.error(error);
+    console.error(err);
   }
 }
 
@@ -228,5 +256,3 @@ window.onload = iniciarCamara;
 </script>
 </body>
 </html>
-
-
