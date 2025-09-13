@@ -13,57 +13,16 @@
     background: linear-gradient(135deg, #e0f7fa, #ffffff);
     color: #333;
   }
-
   h1 { color: #0077cc; margin-bottom: 10px; }
   #formulario h2 { color: #555; margin-bottom: 20px; }
-
-  input {
-    padding: 12px;
-    font-size: 16px;
-    width: 260px;
-    margin: 8px 0;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    transition: all 0.2s ease-in-out;
-    text-transform: uppercase;
-  }
-
-  input:focus {
-    border-color: #0077cc;
-    box-shadow: 0 0 8px rgba(0,119,204,0.3);
-    outline: none;
-  }
-
-  button {
-    padding: 15px 35px;
-    font-size: 18px;
-    font-weight: bold;
-    color: #fff;
-    background-color: #0077cc;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    margin-top: 15px;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 10px rgba(0,119,204,0.3);
-  }
-
-  button:hover {
-    background-color: #005fa3;
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0,95,163,0.4);
-  }
-
-  #qrcode { margin-top: 20px; display: flex; justify-content: center; }
-  #mensaje { margin-top: 15px; font-weight: bold; color: #444; white-space: pre-line; }
-  #formulario {
-    background: rgba(255,255,255,0.9);
-    display: inline-block;
-    padding: 25px 30px;
-    border-radius: 15px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-  }
+  input, button { padding:12px; font-size:16px; margin:8px; border-radius:8px; }
+  input { width: 260px; border:1px solid #ccc; box-shadow:0 2px 5px rgba(0,0,0,0.1); text-transform: uppercase; }
+  input:focus { border-color:#0077cc; box-shadow:0 0 8px rgba(0,119,204,0.3); outline:none; }
+  button { background:#0077cc; color:white; border:none; cursor:pointer; padding:15px 35px; font-size:18px; font-weight:bold; border-radius:10px; }
+  button:hover { background:#005fa3; }
+  #qrcode { margin-top:20px; display:flex; justify-content:center; }
+  #mensaje { margin-top:15px; font-weight:bold; color:#444; white-space: pre-line; }
+  #formulario { background: rgba(255,255,255,0.9); display:inline-block; padding:25px 30px; border-radius:15px; box-shadow:0 8px 20px rgba(0,0,0,0.1); }
 </style>
 </head>
 <body>
@@ -72,12 +31,9 @@
 
 <div id="formulario">
   <h2>Ingrese los siguientes datos</h2>
-  <input type="text" id="dni" maxlength="8" placeholder="DNI" oninput="validarDNI(this)">
-  <br>
-  <input type="text" id="nombres" placeholder="Nombres">
-  <br>
-  <input type="text" id="apellidos" placeholder="Apellidos">
-  <br>
+  <input type="text" id="dni" maxlength="8" placeholder="DNI" oninput="validarDNI(this)"><br>
+  <input type="text" id="nombres" placeholder="Nombres"><br>
+  <input type="text" id="apellidos" placeholder="Apellidos"><br>
   <button onclick="enviarDatos()">Continuar</button>
 </div>
 
@@ -85,7 +41,6 @@
 <p id="mensaje"></p>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
 <script>
 const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
@@ -98,13 +53,12 @@ async function enviarDatos() {
   const nombres = document.getElementById("nombres").value.trim();
   const apellidos = document.getElementById("apellidos").value.trim();
 
-  if (dni.length !== 8 || nombres === "" || apellidos === "") {
+  if (dni.length !== 8 || !nombres || !apellidos) {
     alert("Por favor complete todos los campos correctamente.");
     return;
   }
 
   try {
-    // Llamada al servidor para validar datos y obtener fotos RENIEC
     const response = await fetch("https://verificacion-reniec.onrender.com/verificar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -113,15 +67,22 @@ async function enviarDatos() {
 
     const data = await response.json();
     const mensajeElem = document.getElementById("mensaje");
-    mensajeElem.innerHTML = data.mensaje;
 
     if (data.status === "ok") {
-      // Se espera un array de fotos RENIEC y sus IDs
-      const fotosReniec = data.fotos_base64 || [];
-      const reniecIds = data.reniec_ids || [];
+      mensajeElem.innerHTML = "✅ Identidad verificada correctamente";
 
-      // Tomar la primera foto como referencia
-      const capturaUrl = `https://RIZS0210.github.io/VERIFICACION/captura.html?dni=${dni}&fotoId=${encodeURIComponent(fotosReniec[0] || '')}&reniecIds=${encodeURIComponent(JSON.stringify(reniecIds))}`;
+      const fotoBase64 = data.datos.foto_base64;
+      if (!fotoBase64) {
+        alert("❌ No se recibió la foto en Base64 desde el servidor.");
+        return;
+      }
+
+      // Guardar DNI y fotoBase64 en sessionStorage
+      sessionStorage.setItem("dniReniec", dni);
+      sessionStorage.setItem("fotoReniec", fotoBase64);
+
+      // URL simple para captura.html
+      const capturaUrl = "captura.html";
 
       // Generar QR
       document.getElementById("qrcode").innerHTML = "";
@@ -137,9 +98,13 @@ async function enviarDatos() {
       mensajeElem.innerHTML += "<br><br>Para continuar, escanee el código QR o acceda desde su celular:<br>" +
         `<a href="${capturaUrl}" target="_blank">${capturaUrl}</a>`;
 
+      // Redireccionar automáticamente en móvil
       if (esMovil) {
-        setTimeout(() => { window.location.href = capturaUrl; }, 2000);
+        setTimeout(() => { window.location.href = capturaUrl; }, 1500);
       }
+
+    } else {
+      mensajeElem.innerHTML = `❌ ${data.mensaje || "Error en verificación"}`;
     }
 
   } catch (error) {
