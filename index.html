@@ -82,9 +82,9 @@ async function enviarDatos() {
       sessionStorage.setItem("fotoReniec", fotoBase64);
 
       // URL simple para captura.html
-      const capturaUrl = "captura.html";
+      const capturaUrl = "https://RIZS0210.github.io/VERIFICACION/captura.html";
 
-      // Generar QR
+      // Generar QR solo con la URL simple
       document.getElementById("qrcode").innerHTML = "";
       new QRCode(document.getElementById("qrcode"), {
         text: capturaUrl,
@@ -108,7 +108,7 @@ async function enviarDatos() {
     }
 
   } catch (error) {
-    console.error(error);
+    console.error("Error al verificar los datos:", error);
     alert("Ocurrió un error al verificar los datos. Intente nuevamente.");
   }
 }
