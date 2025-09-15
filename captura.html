@@ -20,14 +20,18 @@ body {
 h1 { margin-top:0; font-size:1.6rem; text-align:center; color:#0077cc; }
 #instrucciones { margin:10px; font-weight:500; color:#555; text-align:center; }
 #camara { position:relative; width:90%; max-width:480px; flex:1; }
-video {
-  display:block;
+/* ocultamos video */
+video { display:none; }
+canvas#overlay {
+  position:absolute;
+  top:0;
+  left:0;
   width:100%;
-  height:auto;
+  height:100%;
   border-radius:18px;
-  transform: scaleX(-1); /* espejo en vista */
+  pointer-events:none;
+  background: transparent;
 }
-canvas#overlay { position:absolute; top:0; left:0; width:100%; height:100%; border-radius:18px; pointer-events:none; }
 #previewContainer img { width:90%; max-width:400px; margin-top:20px; border:2px solid #0077cc; border-radius:12px; box-shadow:0 0 15px rgba(0,119,204,0.5); }
 #verificando { display:none; font-size:2rem; font-weight:bold; color:#0077cc; animation: pulse 1.5s infinite; text-align:center; }
 @keyframes pulse { 0%{opacity:0.4;} 50%{opacity:1;} 100%{opacity:0.4;} }
@@ -58,13 +62,9 @@ canvas#overlay { position:absolute; top:0; left:0; width:100%; height:100%; bord
 <p id="resultado"></p>
 <button id="btnContinuar">Continuar</button>
 
-<!-- Mantengo tu script de face-api (vladmandic) -->
 <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
 
 <script>
-/* -------------------------
-   Variables DOM y estado
-   ------------------------- */
 const video = document.querySelector("video");
 const overlay = document.getElementById("overlay");
 const ctx = overlay.getContext("2d");
@@ -80,53 +80,31 @@ let progressTotal = 0;
 let capturas = [];
 let fotoReniecBase64 = null;
 
-/* -------------------------
-   Lectura de parámetros
-   ------------------------- */
 const urlParams = new URLSearchParams(window.location.search);
 const dni = urlParams.get("dni");
 const nombres = urlParams.get("nombres");
 const apellidos = urlParams.get("apellidos");
-
-/* -------------------------
-   Detección de móvil
-   ------------------------- */
 const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-/* Si faltan parámetros -> volver al index inmediato */
 if(!dni || !nombres || !apellidos){
   alert("❌ Datos incompletos, será redirigido a la página inicial.");
   window.location.href = "index.html";
 }
 
-/* Si no es móvil: no iniciar cámara.
-   En vez de redirigir de inmediato, mostramos botón "Continuar"
-   para regresar al index del equipo (cumple tu requisito). */
 if(!esMovil){
   resultadoMsg.style.display = 'block';
   resultadoMsg.textContent = "⚠️ Esta verificación sólo funciona desde un celular. Presiona CONTINUAR para regresar al index.";
   resultadoMsg.className = "error";
   btnContinuar.style.display = 'inline-block';
   btnContinuar.onclick = () => {
-    // Regresar al index del computador y enviar info (status=error porque no se hizo captura)
-    const params = new URLSearchParams({
-      dni: dni || '',
-      status: "error",
-      mensaje: "Abierto en PC - sin captura"
-    });
-    // redirige a index en el mismo host/ruta relativa que usas
+    const params = new URLSearchParams({ dni: dni || '', status: "error", mensaje: "Abierto en PC - sin captura" });
     window.location.href = "index.html?" + params.toString();
   };
-  // No seguimos con el flujo de captura
 } else {
-  // Si es móvil, arrancamos el flujo normal
   btnContinuar.style.display = 'none';
   window.addEventListener('load', solicitarDatosReniec);
 }
 
-/* -------------------------
-   Solicitar datos a RENIEC
-   ------------------------- */
 async function solicitarDatosReniec(){
   try {
     const response = await fetch("https://verificacion-reniec.onrender.com/verificar", {
@@ -134,14 +112,12 @@ async function solicitarDatosReniec(){
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ dni, nombres, apellidos })
     });
-
     const data = await response.json();
 
     if(data.status === "ok" && data.datos && data.datos.foto_base64){
       fotoReniecBase64 = data.datos.foto_base64;
       iniciarCamara();
     } else {
-      // Mostrar mensaje y habilitar continuar para regresar al index
       mostrarResultado("error", data.mensaje || "No se pudo verificar en RENIEC");
     }
   } catch(err){
@@ -150,12 +126,8 @@ async function solicitarDatosReniec(){
   }
 }
 
-/* -------------------------
-   Inicializar cámara y modelos
-   ------------------------- */
 async function iniciarCamara() {
   try {
-    // carga modelos (ruta que usabas)
     await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
     await faceapi.nets.faceLandmark68TinyNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
 
@@ -163,7 +135,6 @@ async function iniciarCamara() {
     video.srcObject = stream;
     await video.play();
 
-    // ajustar canvas al tamaño real del video
     overlay.width = video.videoWidth || 640;
     overlay.height = video.videoHeight || 480;
 
@@ -174,9 +145,7 @@ async function iniciarCamara() {
   }
 }
 
-/* -------------------------
-   Overlay / guía / progreso
-   ------------------------- */
+// Solo círculo visible
 function drawOverlay(progress = 0){
   const cx = overlay.width/2;
   const cy = overlay.height/2;
@@ -186,20 +155,23 @@ function drawOverlay(progress = 0){
   pulse += 0.05;
   const glow = 3 + 2*Math.sin(pulse);
 
+  // Fondo semi-transparente
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.fillRect(0,0,overlay.width, overlay.height);
+
+  // Recorte circular
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, 2*Math.PI);
   ctx.clip();
-  // el video ya está en espejo con CSS; aquí lo dibujamos normalmente
+
+  // dibujar video espejado dentro del círculo
+  ctx.translate(overlay.width, 0);
+  ctx.scale(-1,1);
   ctx.drawImage(video, 0, 0, overlay.width, overlay.height);
   ctx.restore();
 
-  ctx.fillStyle = "rgba(200, 230, 240, 0.6)";
-  ctx.beginPath();
-  ctx.rect(0,0,overlay.width,overlay.height);
-  ctx.arc(cx, cy, radius, 0, 2*Math.PI, true);
-  ctx.fill();
-
+  // borde animado
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, 2*Math.PI);
   ctx.lineWidth = 4 + glow/2;
@@ -218,9 +190,7 @@ function drawOverlay(progress = 0){
   }
 }
 
-/* -------------------------
-   Bucles de detección y captura
-   ------------------------- */
+// Detect loop y resto del código se mantiene igual
 let lastDetectTime = 0;
 const detectInterval = 200;
 async function detectLoop(){
@@ -261,7 +231,6 @@ async function detectarRostro(){
         detectionComplete = true;
         mostrarVerificando();
         for(let i=0;i<3;i++){
-          // pequeñas pausas entre capturas
           await new Promise(r => setTimeout(r, 500 + i*300));
           await capturarFoto();
         }
@@ -274,23 +243,16 @@ async function detectarRostro(){
   }
 }
 
-/* -------------------------
-   Mostrar verificando (oculta UI de captura)
-   ------------------------- */
 function mostrarVerificando(){
   document.querySelectorAll('h1,#instrucciones,#camara,#previewContainer,#progressBar').forEach(el=>el.style.display='none');
   verificandoMsg.style.display='block';
 }
 
-/* -------------------------
-   Captura (mirror aplicado al canvas)
-   ------------------------- */
 async function capturarFoto(){
   const canvas = document.createElement("canvas");
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   const ctx2 = canvas.getContext("2d");
-  // reflejamos para que la imagen no quede invertida
   ctx2.translate(canvas.width, 0);
   ctx2.scale(-1,1);
   ctx2.drawImage(video,0,0);
@@ -307,19 +269,12 @@ async function capturarFoto(){
   }
 }
 
-/* -------------------------
-   Envío al backend de verificación facial
-   ------------------------- */
 async function enviarFotos(){
   try{
     const resp = await fetch("https://face-app-k1b5.onrender.com/verificar_foto", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({
-        dni,
-        fotos: capturas,
-        foto_reniec: fotoReniecBase64
-      })
+      body: JSON.stringify({ dni, fotos: capturas, foto_reniec: fotoReniecBase64 })
     });
 
     const data = await resp.json();
@@ -330,30 +285,18 @@ async function enviarFotos(){
   }
 }
 
-/* -------------------------
-   Mostrar resultado y habilitar botón continuar
-   ------------------------- */
 function mostrarResultado(status, mensaje){
   verificandoMsg.style.display = "none";
   resultadoMsg.style.display = "block";
   resultadoMsg.textContent = mensaje;
   resultadoMsg.className = (status === "ok") ? "ok" : "error";
 
-  // Mostrar botón continuar (tanto para móvil como para PC)
   btnContinuar.style.display = 'inline-block';
   btnContinuar.onclick = () => {
-    const params = new URLSearchParams({
-      dni: dni || '',
-      status: status || 'error',
-      mensaje: mensaje || ''
-    });
+    const params = new URLSearchParams({ dni: dni || '', status: status || 'error', mensaje: mensaje || '' });
     window.location.href = "index.html?" + params.toString();
   };
 }
-
-/* -------------------------
-   Fin
-   ------------------------- */
 </script>
 </body>
 </html>
