@@ -58,12 +58,8 @@ function continuar() {
     return;
   }
 
-  // Guardar datos en sessionStorage para usarlos en captura.html
-  sessionStorage.setItem("dniReniec", dni);
-  sessionStorage.setItem("nombresReniec", nombres);
-  sessionStorage.setItem("apellidosReniec", apellidos);
-
-  const capturaUrl = "https://RIZS0210.github.io/VERIFICACION/captura.html";
+  // Crear la URL con los datos en query string
+  const capturaUrl = `https://RIZS0210.github.io/VERIFICACION/captura.html?dni=${encodeURIComponent(dni)}&nombres=${encodeURIComponent(nombres)}&apellidos=${encodeURIComponent(apellidos)}`;
 
   if (esMovil) {
     // Si es móvil → redirige directamente
