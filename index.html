@@ -23,14 +23,17 @@
   #qrcode { margin-top:20px; display:flex; justify-content:center; }
   #mensaje { margin-top:15px; font-weight:bold; color:#444; white-space: pre-line; }
   #formulario { background: rgba(255,255,255,0.9); display:inline-block; padding:25px 30px; border-radius:15px; box-shadow:0 8px 20px rgba(0,0,0,0.1); }
-  #resultadoFinal { font-size:1.4rem; font-weight:bold; margin-top:20px; }
-  #resultadoFinal.ok { color:#00cc66; }
-  #resultadoFinal.error { color:#cc3300; }
+  #resultadoVerificacion { font-size:1.2rem; font-weight:bold; margin-bottom:15px; }
+  #resultadoVerificacion.ok { color:#00cc66; }
+  #resultadoVerificacion.error { color:#cc3300; }
 </style>
 </head>
 <body>
 
 <h1>Verificación de Identidad</h1>
+
+<!-- Resultado después de volver desde captura.html -->
+<p id="resultadoVerificacion"></p>
 
 <div id="formulario">
   <h2>Ingrese los siguientes datos</h2>
@@ -42,7 +45,6 @@
 
 <div id="qrcode"></div>
 <p id="mensaje"></p>
-<p id="resultadoFinal"></p>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
@@ -87,24 +89,21 @@ function continuar() {
 }
 
 // --- Mostrar resultado si viene desde captura.html ---
-window.onload = function() {
+function mostrarResultado() {
   const params = new URLSearchParams(window.location.search);
   const status = params.get("status");
   const mensaje = params.get("mensaje");
   const dni = params.get("dni");
 
-  if (status && mensaje) {
-    // Ocultar formulario y QR
-    document.getElementById("formulario").style.display = "none";
-    document.getElementById("qrcode").style.display = "none";
-    document.getElementById("mensaje").style.display = "none";
-
-    // Mostrar resultado final
-    const resultado = document.getElementById("resultadoFinal");
-    resultado.textContent = `DNI ${dni}: ${mensaje}`;
-    resultado.className = status === "ok" ? "ok" : "error";
+  if(status && mensaje){
+    const resultado = document.getElementById("resultadoVerificacion");
+    resultado.textContent = mensaje;
+    resultado.className = (status === "ok") ? "ok" : "error";
   }
-};
+}
+
+// Ejecutar al cargar
+mostrarResultado();
 </script>
 
 </body>
