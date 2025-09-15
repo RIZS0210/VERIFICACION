@@ -23,7 +23,7 @@
   #qrcode { margin-top:20px; display:flex; justify-content:center; }
   #mensaje { margin-top:15px; font-weight:bold; color:#444; white-space: pre-line; }
   #formulario { background: rgba(255,255,255,0.9); display:inline-block; padding:25px 30px; border-radius:15px; box-shadow:0 8px 20px rgba(0,0,0,0.1); }
-  #resultadoVerificacion { font-size:1.2rem; font-weight:bold; margin-bottom:15px; }
+  #resultadoVerificacion { font-size:1.5rem; font-weight:bold; margin:20px 0; }
   #resultadoVerificacion.ok { color:#00cc66; }
   #resultadoVerificacion.error { color:#cc3300; }
 </style>
@@ -32,7 +32,7 @@
 
 <h1>Verificación de Identidad</h1>
 
-<!-- Resultado después de volver desde captura.html -->
+<!-- Resultado cuando se regresa de captura.html -->
 <p id="resultadoVerificacion"></p>
 
 <div id="formulario">
@@ -97,8 +97,13 @@ function mostrarResultado() {
 
   if(status && mensaje){
     const resultado = document.getElementById("resultadoVerificacion");
-    resultado.textContent = mensaje;
+    resultado.textContent = `DNI ${dni}: ${mensaje}`;
     resultado.className = (status === "ok") ? "ok" : "error";
+
+    // ocultar formulario y QR
+    document.getElementById("formulario").style.display = "none";
+    document.getElementById("qrcode").style.display = "none";
+    document.getElementById("mensaje").style.display = "none";
   }
 }
 
