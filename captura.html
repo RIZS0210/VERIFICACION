@@ -5,7 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Captura Facial Automática</title>
 <style>
-/* ... tus estilos se mantienen igual ... */
+body {
+  margin:0;
+  font-family:'Segoe UI', Arial, sans-serif;
+  background: linear-gradient(135deg, #d0ebff, #ffffff);
+  color:#333;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  height:100vh;
+  overflow:hidden;
+}
+h1 { margin-top:0; font-size:1.6rem; text-align:center; color:#0077cc; }
+#instrucciones { margin:10px; font-weight:500; color:#555; text-align:center; }
+#camara { position:relative; width:90%; max-width:480px; flex:1; }
+video {
+  display:block;
+  width:1px;
+  height:1px;
+  position:absolute;
+  top:-1000px;
+  transform: scaleX(-1); /* 🔥 Corrige cámara invertida en selfie */
+}
+canvas#overlay { width:100%; height:100%; display:block; border-radius:18px; background:#f0f0f0; }
+#previewContainer img { width:90%; max-width:400px; margin-top:20px; border:2px solid #0077cc; border-radius:12px; box-shadow:0 0 15px rgba(0,119,204,0.5); }
+#verificando { display:none; font-size:2rem; font-weight:bold; color:#0077cc; animation: pulse 1.5s infinite; text-align:center; }
+@keyframes pulse { 0%{opacity:0.4;} 50%{opacity:1;} 100%{opacity:0.4;} }
+#resultado { display:none; font-size:2rem; font-weight:bold; text-align:center; margin-top:20px; }
+#resultado.ok { color:#00cc66; }
+#resultado.error { color:#cc3300; }
+#progressBar { width:90%; max-width:480px; height:20px; background:#eee; border-radius:10px; margin-top:10px; }
+#progressFill { height:100%; width:0%; background:#00cc66; border-radius:10px; transition: width 0.2s; }
 </style>
 </head>
 <body>
@@ -39,11 +70,13 @@ let progressTotal = 0;
 let capturas = [];
 
 // --- Detectar si es móvil ---
-function esMovil() {
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const esMovil = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+if(!esMovil){
+  alert("⚠️ Esta página solo funciona en celulares. Será redirigido al index.");
+  window.location.href = "index.html";
 }
 
-// --- Leer datos desde la URL ---
+// --- Leer datos desde la URL (query string) ---
 const urlParams = new URLSearchParams(window.location.search);
 let dni = urlParams.get("dni");
 let nombres = urlParams.get("nombres");
@@ -54,12 +87,6 @@ let fotoReniecBase64 = null;
 if(!dni || !nombres || !apellidos){
   alert("❌ Datos incompletos, será redirigido a la página inicial.");
   window.location.href = "index.html";
-}
-
-// Si no es móvil, cancelar
-if(!esMovil()){
-  alert("⚠️ Esta verificación solo puede hacerse desde un celular.");
-  window.location.href = "index.html?status=error&mensaje=Debe%20usar%20un%20celular";
 }
 
 // --- Paso 1: Solicitud a RENIEC ---
@@ -78,13 +105,13 @@ async function solicitarDatosReniec(){
       iniciarCamara();
     } else {
       alert("❌ No se pudo verificar en RENIEC: " + (data.mensaje || "Error desconocido"));
-      window.location.href = "index.html?status=error&mensaje=" + encodeURIComponent("Error RENIEC");
+      window.location.href = "index.html";
     }
 
   } catch(err){
     console.error("Error en solicitud RENIEC:", err);
     alert("❌ Error de conexión con RENIEC");
-    window.location.href = "index.html?status=error&mensaje=" + encodeURIComponent("Error de conexión con RENIEC");
+    window.location.href = "index.html";
   }
 }
 
@@ -108,7 +135,123 @@ async function iniciarCamara() {
   }
 }
 
-// --- El resto de tu lógica (drawOverlay, detectarRostro, capturarFoto) se mantiene igual ---
+// --- Dibujar overlay ---
+function drawOverlay(progress = 0){
+  const cx = overlay.width/2;
+  const cy = overlay.height/2;
+  const radius = Math.min(overlay.width, overlay.height)/2.2;
+
+  ctx.clearRect(0,0,overlay.width, overlay.height);
+  pulse += 0.05;
+  const glow = 3 + 2*Math.sin(pulse);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, 2*Math.PI);
+  ctx.clip();
+  ctx.drawImage(video, 0, 0, overlay.width, overlay.height);
+  ctx.restore();
+
+  ctx.fillStyle = "rgba(200, 230, 240, 0.6)";
+  ctx.beginPath();
+  ctx.rect(0,0,overlay.width,overlay.height);
+  ctx.arc(cx, cy, radius, 0, 2*Math.PI, true);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, 2*Math.PI);
+  ctx.lineWidth = 4 + glow/2;
+  ctx.strokeStyle = progress>0.8 ? "#00cc66" : "#0077cc";
+  ctx.shadowColor = ctx.strokeStyle;
+  ctx.shadowBlur = glow*3;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  if(progress > 0){
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius + 5, -Math.PI/2, -Math.PI/2 + 2*Math.PI*progress);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "#00cc66";
+    ctx.stroke();
+  }
+}
+
+// --- Detección facial ---
+let lastDetectTime = 0;
+const detectInterval = 200;
+async function detectLoop(){
+  if(detectionComplete) return;
+  const now = performance.now();
+  if(now - lastDetectTime > detectInterval){
+    lastDetectTime = now;
+    await detectarRostro();
+  }
+  requestAnimationFrame(detectLoop);
+}
+
+async function detectarRostro(){
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize:160, scoreThreshold:0.5 });
+  const detections = await faceapi.detectSingleFace(video, options).withFaceLandmarks(true);
+
+  if(detections){
+    const cx = overlay.width/2;
+    const cy = overlay.height/2;
+    const nose = detections.landmarks.positions[30];
+    const leftEye = detections.landmarks.positions[36];
+    const rightEye = detections.landmarks.positions[45];
+
+    const dx = nose.x - cx;
+    const dy = nose.y - cy;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const maxDist = 100;
+    let frameProgress = Math.max(0, 1 - dist/maxDist);
+    frameProgress = Math.min(1, frameProgress);
+
+    progressTotal = Math.min(1, progressTotal + frameProgress*0.02);
+    drawOverlay(progressTotal);
+    progressFill.style.width = `${Math.floor(progressTotal*100)}%`;
+
+    const eyeDist = Math.abs(leftEye.x - rightEye.x);
+    if(progressTotal >= 0.95 && eyeDist > 40){
+      detectionComplete = true;
+      mostrarVerificando();
+      for(let i=0;i<3;i++){
+        await new Promise(r => setTimeout(r, i*500));
+        await capturarFoto();
+      }
+    }
+  } else {
+    drawOverlay(progressTotal);
+  }
+}
+
+// --- Mostrar mensaje de verificando ---
+function mostrarVerificando(){
+  document.querySelectorAll('h1,#instrucciones,#camara,#previewContainer,#progressBar').forEach(el=>el.style.display='none');
+  verificandoMsg.style.display='block';
+}
+
+// --- Captura foto ---
+async function capturarFoto(){
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx2 = canvas.getContext("2d");
+  ctx2.translate(canvas.width, 0);
+  ctx2.scale(-1,1); // 🔥 también reflejamos la captura para que no quede invertida
+  ctx2.drawImage(video,0,0);
+
+  const fotoData = canvas.toDataURL("image/jpeg");
+  capturas.push(fotoData);
+
+  const img = document.createElement("img");
+  img.src = fotoData;
+  document.getElementById("previewContainer").appendChild(img);
+
+  if(capturas.length === 3){
+    await enviarFotos();
+  }
+}
 
 // --- Enviar fotos al backend ---
 async function enviarFotos(){
@@ -129,23 +272,21 @@ async function enviarFotos(){
     resultadoMsg.textContent = data.mensaje;
     resultadoMsg.className = data.status==="ok"?"ok":"error";
 
-    // 🔄 Volver al index en 3s
+    // 🔥 Enviar resultado al index automáticamente
     setTimeout(()=>{
-      const query = new URLSearchParams({ dni, status: data.status, mensaje: data.mensaje });
-      window.location.href = "index.html?" + query.toString();
-    }, 3000);
+      window.location.href = "index.html?resultado=" + encodeURIComponent(data.mensaje);
+    }, 2500);
 
   } catch(err){
     verificandoMsg.style.display='none';
     resultadoMsg.style.display='block';
     resultadoMsg.textContent="❌ Error de conexión";
     resultadoMsg.className="error";
+    console.error(err);
 
     setTimeout(()=>{
-      window.location.href = "index.html?dni=" + dni + "&status=error&mensaje=" + encodeURIComponent("Error de conexión");
-    }, 3000);
-
-    console.error(err);
+      window.location.href = "index.html?resultado=" + encodeURIComponent("❌ Error de conexión");
+    }, 2500);
   }
 }
 
