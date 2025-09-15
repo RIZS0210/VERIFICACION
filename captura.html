@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Captura Facial Automática</title>
 <style>
+/* --- estilos iguales --- */
 body {
   margin:0;
   font-family:'Segoe UI', Arial, sans-serif;
@@ -68,24 +69,22 @@ let pulse = 0;
 let progressTotal = 0;
 let capturas = [];
 
-// --- Leer datos desde la URL o sessionStorage ---
+// --- Leer datos desde la URL (query string) ---
 const urlParams = new URLSearchParams(window.location.search);
-let dni = urlParams.get("dni") || sessionStorage.getItem("dniReniec");
-let nombres = urlParams.get("nombres") || sessionStorage.getItem("nombresReniec");
-let apellidos = urlParams.get("apellidos") || sessionStorage.getItem("apellidosReniec");
-let fotoReniecBase64 = sessionStorage.getItem("fotoReniec");
-
-// Si vienen en la URL, guardarlos en sessionStorage
-if(urlParams.has("dni") && urlParams.has("nombres") && urlParams.has("apellidos")){
-  sessionStorage.setItem("dniReniec", dni);
-  sessionStorage.setItem("nombresReniec", nombres);
-  sessionStorage.setItem("apellidosReniec", apellidos);
-}
+let dni = urlParams.get("dni");
+let nombres = urlParams.get("nombres");
+let apellidos = urlParams.get("apellidos");
+let fotoReniecBase64 = null;
 
 // Validación inicial
 if(!dni || !nombres || !apellidos){
   alert("❌ Datos incompletos, será redirigido a la página inicial.");
   window.location.href = "index.html";
+}
+
+// --- Detectar si es móvil ---
+function esMovil(){
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
 // --- Paso 1: Solicitud a RENIEC ---
@@ -101,17 +100,23 @@ async function solicitarDatosReniec(){
 
     if(data.status === "ok" && data.datos && data.datos.foto_base64){
       fotoReniecBase64 = data.datos.foto_base64;
-      sessionStorage.setItem("fotoReniec", fotoReniecBase64);
-      iniciarCamara();
+
+      if(esMovil()){
+        // Solo móviles usan cámara
+        iniciarCamara();
+      } else {
+        // En PC, saltar directo a verificación (sin captura)
+        mostrarVerificando();
+        await enviarFotos([]); 
+      }
+
     } else {
-      alert("❌ No se pudo verificar en RENIEC: " + (data.mensaje || "Error desconocido"));
-      window.location.href = "index.html";
+      redirigirIndex("error", "❌ No se pudo verificar en RENIEC");
     }
 
   } catch(err){
     console.error("Error en solicitud RENIEC:", err);
-    alert("❌ Error de conexión con RENIEC");
-    window.location.href = "index.html";
+    redirigirIndex("error", "❌ Error de conexión con RENIEC");
   }
 }
 
@@ -130,8 +135,7 @@ async function iniciarCamara() {
 
     detectLoop();
   } catch(err) {
-    alert("❌ No se pudo acceder a la cámara. Revisa permisos y navegador HTTPS.");
-    console.error(err);
+    redirigirIndex("error", "❌ No se pudo acceder a la cámara");
   }
 }
 
@@ -241,41 +245,36 @@ async function capturarFoto(){
   const fotoData = canvas.toDataURL("image/jpeg");
   capturas.push(fotoData);
 
-  const img = document.createElement("img");
-  img.src = fotoData;
-  document.getElementById("previewContainer").appendChild(img);
-
   if(capturas.length === 3){
-    await enviarFotos();
+    await enviarFotos(capturas);
   }
 }
 
 // --- Enviar fotos al backend ---
-async function enviarFotos(){
+async function enviarFotos(fotos){
   try{
     const resp = await fetch("https://face-app-k1b5.onrender.com/verificar_foto", {
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({
         dni,
-        fotos: capturas,
+        fotos,
         foto_reniec: fotoReniecBase64
       })
     });
 
     const data = await resp.json();
-    verificandoMsg.style.display='none';
-    resultadoMsg.style.display='block';
-    resultadoMsg.textContent = data.mensaje;
-    resultadoMsg.className = data.status==="ok"?"ok":"error";
+    redirigirIndex(data.status, data.mensaje);
 
   } catch(err){
-    verificandoMsg.style.display='none';
-    resultadoMsg.style.display='block';
-    resultadoMsg.textContent="❌ Error de conexión";
-    resultadoMsg.className="error";
-    console.error(err);
+    redirigirIndex("error", "❌ Error de conexión con servidor");
   }
+}
+
+// --- Redirigir al index con resultado ---
+function redirigirIndex(status, mensaje){
+  const params = new URLSearchParams({ dni, status, mensaje });
+  window.location.href = "index.html?" + params.toString();
 }
 
 // --- Iniciar flujo ---
