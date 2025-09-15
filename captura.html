@@ -68,12 +68,19 @@ let pulse = 0;
 let progressTotal = 0;
 let capturas = [];
 
-// --- Leer datos desde la URL (query string) ---
+// --- Leer datos desde la URL o sessionStorage ---
 const urlParams = new URLSearchParams(window.location.search);
-let dni = urlParams.get("dni");
-let nombres = urlParams.get("nombres");
-let apellidos = urlParams.get("apellidos");
-let fotoReniecBase64 = null;
+let dni = urlParams.get("dni") || sessionStorage.getItem("dniReniec");
+let nombres = urlParams.get("nombres") || sessionStorage.getItem("nombresReniec");
+let apellidos = urlParams.get("apellidos") || sessionStorage.getItem("apellidosReniec");
+let fotoReniecBase64 = sessionStorage.getItem("fotoReniec");
+
+// Si vienen en la URL, guardarlos en sessionStorage
+if(urlParams.has("dni") && urlParams.has("nombres") && urlParams.has("apellidos")){
+  sessionStorage.setItem("dniReniec", dni);
+  sessionStorage.setItem("nombresReniec", nombres);
+  sessionStorage.setItem("apellidosReniec", apellidos);
+}
 
 // Validación inicial
 if(!dni || !nombres || !apellidos){
@@ -94,6 +101,7 @@ async function solicitarDatosReniec(){
 
     if(data.status === "ok" && data.datos && data.datos.foto_base64){
       fotoReniecBase64 = data.datos.foto_base64;
+      sessionStorage.setItem("fotoReniec", fotoReniecBase64);
       iniciarCamara();
     } else {
       alert("❌ No se pudo verificar en RENIEC: " + (data.mensaje || "Error desconocido"));
