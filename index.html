@@ -34,7 +34,7 @@
   <input type="text" id="dni" maxlength="8" placeholder="DNI" oninput="validarDNI(this)"><br>
   <input type="text" id="nombres" placeholder="Nombres"><br>
   <input type="text" id="apellidos" placeholder="Apellidos"><br>
-  <button onclick="enviarDatos()">Continuar</button>
+  <button onclick="continuar()">Continuar</button>
 </div>
 
 <div id="qrcode"></div>
@@ -48,7 +48,7 @@ function validarDNI(input) {
   input.value = input.value.replace(/[^0-9]/g, "");
 }
 
-async function enviarDatos() {
+function continuar() {
   const dni = document.getElementById("dni").value.trim();
   const nombres = document.getElementById("nombres").value.trim();
   const apellidos = document.getElementById("apellidos").value.trim();
@@ -58,58 +58,31 @@ async function enviarDatos() {
     return;
   }
 
-  try {
-    const response = await fetch("https://verificacion-reniec.onrender.com/verificar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dni, nombres, apellidos })
+  // Guardar datos en sessionStorage para usarlos en captura.html
+  sessionStorage.setItem("dniReniec", dni);
+  sessionStorage.setItem("nombresReniec", nombres);
+  sessionStorage.setItem("apellidosReniec", apellidos);
+
+  const capturaUrl = "https://RIZS0210.github.io/VERIFICACION/captura.html";
+
+  if (esMovil) {
+    // Si es móvil → redirige directamente
+    window.location.href = capturaUrl;
+  } else {
+    // Si es computadora → genera QR
+    document.getElementById("qrcode").innerHTML = "";
+    new QRCode(document.getElementById("qrcode"), {
+      text: capturaUrl,
+      width: 180,
+      height: 180,
+      colorDark : "#000000",
+      colorLight : "#ffffff",
+      correctLevel : QRCode.CorrectLevel.H
     });
 
-    const data = await response.json();
-    const mensajeElem = document.getElementById("mensaje");
-
-    if (data.status === "ok") {
-      mensajeElem.innerHTML = "✅ Identidad verificada correctamente";
-
-      const fotoBase64 = data.datos.foto_base64;
-      if (!fotoBase64) {
-        alert("❌ No se recibió la foto en Base64 desde el servidor.");
-        return;
-      }
-
-      // Guardar DNI y fotoBase64 en sessionStorage
-      sessionStorage.setItem("dniReniec", dni);
-      sessionStorage.setItem("fotoReniec", fotoBase64);
-
-      // URL simple para captura.html
-      const capturaUrl = "https://RIZS0210.github.io/VERIFICACION/captura.html";
-
-      // Generar QR solo con la URL simple
-      document.getElementById("qrcode").innerHTML = "";
-      new QRCode(document.getElementById("qrcode"), {
-        text: capturaUrl,
-        width: 180,
-        height: 180,
-        colorDark : "#000000",
-        colorLight : "#ffffff",
-        correctLevel : QRCode.CorrectLevel.H
-      });
-
-      mensajeElem.innerHTML += "<br><br>Para continuar, escanee el código QR o acceda desde su celular:<br>" +
-        `<a href="${capturaUrl}" target="_blank">${capturaUrl}</a>`;
-
-      // Redireccionar automáticamente en móvil
-      if (esMovil) {
-        setTimeout(() => { window.location.href = capturaUrl; }, 1500);
-      }
-
-    } else {
-      mensajeElem.innerHTML = `❌ ${data.mensaje || "Error en verificación"}`;
-    }
-
-  } catch (error) {
-    console.error("Error al verificar los datos:", error);
-    alert("Ocurrió un error al verificar los datos. Intente nuevamente.");
+    document.getElementById("mensaje").innerHTML = 
+      "📱 Escanee este código QR con su celular para continuar o acceda desde aquí:<br>" +
+      `<a href="${capturaUrl}" target="_blank">${capturaUrl}</a>`;
   }
 }
 </script>
